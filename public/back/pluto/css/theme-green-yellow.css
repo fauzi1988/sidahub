@@ -1,0 +1,342 @@
+/**
+ * Theme: Dominasi Biru Langit & Kuning
+ * Override warna untuk layouts/main - teks tetap terbaca jelas
+ */
+
+/* === Sidebar === */
+#sidebar {
+    background-color: #026aa7 !important;
+    background-image: none !important;
+    color: #fff;
+}
+#sidebar ul.components ul {
+    background: #0288d1 !important;
+}
+#sidebar h4 {
+    background: #026aa7 !important;
+    color: #fff !important;
+    border-bottom: solid #f9a825 2px !important;
+}
+#sidebar ul li a {
+    color: rgba(255, 255, 255, 0.92) !important;
+}
+#sidebar ul li a:hover,
+#sidebar ul li a:focus {
+    color: #fff !important;
+    background: rgba(249, 168, 37, 0.15) !important;
+}
+#sidebar ul.components ul li a {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+#sidebar ul.components ul li a:hover {
+    color: #fff !important;
+    background: rgba(249, 168, 37, 0.12) !important;
+}
+
+.sidebar_user_info {
+    background: #0288d1 !important;
+}
+.user_info h6 {
+    color: #fff !important;
+}
+.user_info p {
+    color: #fffde7 !important;
+}
+.online_animation {
+    background: #fbc02d !important;
+}
+
+/* Icon warna menu - kuning/hijau */
+#sidebar .yellow_color {
+    color: #fbc02d !important;
+}
+#sidebar .purple_color {
+    color: #b3e5fc !important;
+}
+
+/* === Topbar === */
+.topbar {
+    background: #026aa7 !important;
+}
+.topbar .navbar {
+    background: #026aa7 !important;
+}
+.sidebar_toggle {
+    background: #f9a825 !important;
+    color: #026aa7 !important;
+}
+.icon_info ul.user_profile_dd > li {
+    background: #f9a825 !important;
+}
+.icon_info ul.user_profile_dd > li span,
+.icon_info ul.user_profile_dd > li a {
+    color: #026aa7 !important;
+}
+.icon_info ul li a {
+    color: #fff !important;
+}
+
+/* === Content area === */
+#content {
+    background: #e8f5e9 !important;
+}
+.page_title {
+    background: #fff !important;
+    border-left: 4px solid #f9a825;
+    box-shadow: 0 1px 4px rgba(2, 119, 189, 0.12);
+}
+.page_title h2 {
+    color: #026aa7 !important;
+}
+
+/* Card / section */
+.white_shd {
+    background: #fff !important;
+    box-shadow: 0 2px 12px rgba(2, 119, 189, 0.08);
+    border: 1px solid rgba(3, 155, 229, 0.15);
+}
+.graph_head {
+    border-bottom: solid #b3e5fc 2px !important;
+    background: linear-gradient(180deg, #f1f8e9 0%, #fff 100%) !important;
+}
+.graph_head .heading1 h2,
+.heading1 h2 {
+    color: #026aa7 !important;
+}
+
+/* Typography - agar terbaca jelas */
+body,
+html {
+    color: #333 !important;
+}
+h1, h2, h3, h4, h5, h6 {
+    color: #0277bd !important;
+}
+a {
+    color: #0288d1 !important;
+}
+a:hover {
+    color: #026aa7 !important;
+}
+
+/* Tabel */
+.thead-light th,
+.table thead th {
+    background: #0288d1 !important;
+    color: #fff !important;
+    border-color: #0288d1 !important;
+}
+.table-bordered th,
+.table-bordered td {
+    border-color: rgba(3, 155, 229, 0.25) !important;
+}
+.table tbody tr:hover {
+    background: #fff3e0 !important; /* hover oranye lembut agar kontras dengan tema hijau */
+}
+
+/* Link di dalam tabel - warna gelap kontras, mudah dibaca (bukan putih/hijau/kuning) */
+.table td a:not(.btn),
+.table-responsive a:not(.btn),
+.white_shd .table a:not(.btn),
+.graph_revenue .table a:not(.btn) {
+    color: #0d47a1 !important;
+    font-weight: 500;
+}
+.table td a:not(.btn):hover,
+.table-responsive a:not(.btn):hover,
+.white_shd .table a:not(.btn):hover,
+.graph_revenue .table a:not(.btn):hover {
+    color: #01579b !important;
+    text-decoration: underline !important;
+}
+/* Link di dalam tabel - warna font gelap kontras (bukan putih/hijau/kuning), mudah dibaca */
+.table a[href]:not(.btn),
+.table-responsive a[href]:not(.btn) {
+    color: #0d47a1 !important;
+    font-weight: 500;
+}
+.table a[href]:not(.btn):hover,
+.table-responsive a[href]:not(.btn):hover {
+    color: #01579b !important;
+    text-decoration: underline !important;
+}
+/* Semua link/tombol di sel tabel: font gelap kontras (hindari putih & hijau/kuning) */
+.table .btn,
+.table-responsive .btn {
+    color: #1a237e !important;
+    font-weight: 500;
+}
+.table .btn:hover,
+.table-responsive .btn:hover {
+    color: #0d47a1 !important;
+}
+/* Khusus tombol Barang di PO: hover font putih */
+.table .btn.btn-barang-po:hover,
+.table-responsive .btn.btn-barang-po:hover {
+    color: #fff !important;
+}
+.table .btn.btn-edit-po:hover,
+.table-responsive .btn.btn-edit-po:hover,
+.table .btn.btn-detail-po:hover,
+.table-responsive .btn.btn-detail-po:hover {
+    color: #fff !important;
+}
+/* Tombol Buat PO Baru: samakan efek hover dengan tombol Barang */
+.btn.btn-po-baru {
+    color: #000 !important;
+}
+.btn.btn-po-baru:hover {
+    color: #fff !important;
+}
+/* Tombol hijau/kuning di tabel: background agak terang supaya font gelap terbaca */
+.table .btn-primary,
+.table-responsive .btn-primary {
+    background: #6bb7e3 !important;
+    border-color: #4aa3d8 !important;
+}
+.table .btn-info,
+.table-responsive .btn-info {
+    background: #b2dfdb !important;
+    border-color: #80cbc4 !important;
+}
+.table .btn-warning,
+.table-responsive .btn-warning {
+    background: #fff9c4 !important;
+    border-color: #fff59d !important;
+}
+.table .btn-danger,
+.table-responsive .btn-danger {
+    background: #ffcdd2 !important;
+    border-color: #ef9a9a !important;
+    color: #b71c1c !important;
+}
+.table .btn-success,
+.table-responsive .btn-success {
+    background: #9dd1ef !important;
+    border-color: #6bb7e3 !important;
+}
+/* Teks biasa di sel tabel tetap gelap */
+.table td,
+.table th {
+    color: #212121 !important;
+}
+.table thead th {
+    color: #fff !important; /* header tetap putih di atas hijau */
+}
+
+/* Button primary - biru langit */
+.btn-primary {
+    background: #0288d1 !important;
+    border-color: #0288d1 !important;
+}
+.btn-primary:hover {
+    background: #026aa7 !important;
+    border-color: #026aa7 !important;
+}
+.btn-info {
+    background: #4aa3d8 !important;
+    border-color: #4aa3d8 !important;
+}
+.btn-info:hover {
+    background: #0288d1 !important;
+    border-color: #0288d1 !important;
+}
+.btn-warning {
+    background: #f9a825 !important;
+    border-color: #f9a825 !important;
+    color: #026aa7 !important;
+}
+.btn-warning:hover {
+    background: #f57f17 !important;
+    border-color: #f57f17 !important;
+    color: #fff !important;
+}
+.btn-success {
+    background: #4aa3d8 !important;
+    border-color: #4aa3d8 !important;
+}
+
+/* Footer */
+.footer {
+    background: #fff !important;
+    border-top: 2px solid #b3e5fc;
+}
+.footer p {
+    color: #0288d1 !important;
+}
+.footer a {
+    color: #026aa7 !important;
+}
+
+/* Form control border subtle hijau */
+.form-control:focus {
+    border-color: #4aa3d8;
+    box-shadow: 0 0 0 0.2rem rgba(3, 155, 229, 0.2);
+}
+
+/* Badge & alert */
+.badge-success {
+    background: #4aa3d8 !important;
+}
+.alert-success {
+    background: #e8f5e9;
+    border-color: #6bb7e3;
+    color: #026aa7;
+}
+.alert-info {
+    background: #e3f2fd;
+    border-color: #90caf9;
+    color: #0d47a1;
+}
+
+/* Column title / heading section */
+.column_title .page_title h2 {
+    color: #026aa7 !important;
+}
+
+/* ==========================================================
+   Uniform Button Style (global)
+   Referensi model: tombol di formpo/index (Buat PO Baru)
+   ========================================================== */
+.btn {
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+    transition: all 0.2s ease !important;
+}
+
+/* Tombol utama seragam */
+.btn-primary,
+.btn-secondary,
+.btn-info,
+.btn-warning,
+.btn-success,
+.btn-light,
+.btn-outline-secondary {
+    background: #6bb7e3 !important;
+    border-color: #4aa3d8 !important;
+    color: #000 !important;
+}
+
+.btn-primary:hover,
+.btn-secondary:hover,
+.btn-info:hover,
+.btn-warning:hover,
+.btn-success:hover,
+.btn-light:hover,
+.btn-outline-secondary:hover {
+    background: #f57f17 !important;
+    border-color: #ef6c00 !important;
+    color: #fff !important;
+}
+
+/* Tombol berbahaya tetap merah, tapi mengikuti pola teks/hover */
+.btn-danger {
+    background: #ffcdd2 !important;
+    border-color: #ef9a9a !important;
+    color: #000 !important;
+}
+.btn-danger:hover {
+    background: #d32f2f !important;
+    border-color: #b71c1c !important;
+    color: #fff !important;
+}
