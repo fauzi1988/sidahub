@@ -1,0 +1,4 @@
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/dishubha/sidahub.dishub-haltim.com/
+    - /bin/cp -R * $DEPLOYPATH
