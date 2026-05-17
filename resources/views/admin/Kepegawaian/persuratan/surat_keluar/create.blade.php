@@ -20,7 +20,7 @@
 
 <div class="white_shd full margin_bottom_30">
    <div class="full graph_revenue p-4">
-      <form action="{{ route('persuratan-surat-keluar.store') }}" method="POST">
+      <form action="{{ route('persuratan-surat-keluar.store') }}" method="POST" enctype="multipart/form-data">
          @csrf
          @include('admin.Kepegawaian.persuratan.surat_keluar._form', ['persuratan' => null])
       </form>

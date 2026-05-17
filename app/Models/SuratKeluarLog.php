@@ -27,5 +27,30 @@ class SuratKeluarLog extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function actionLabel(): string
+    {
+        return self::actionLabels()[$this->action] ?? $this->action;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function actionLabels(): array
+    {
+        return [
+            'submit_ke_kabid' => 'Dikirim ke Kabid',
+            'approve_kabid' => 'Disetujui Kabid',
+            'revisi_kabid' => 'Revisi Substansi (Kabid)',
+            'teruskan_sekretariat_ke_kadis' => 'Diteruskan ke Kadis',
+            'revisi_sekretariat' => 'Revisi Administrasi (Sekretariat)',
+            'approve_kadis' => 'Ditandatangani Kadis',
+            'revisi_kadis' => 'Dikembalikan dari Kadis',
+            'sekretariat_nomor_dan_kirim' => 'Dinomori & Dikirim',
+            'arsipkan' => 'Diarsipkan',
+            'batalkan' => 'Dibatalkan',
+            'edit_konten' => 'Edit Konten',
+        ];
+    }
 }
 

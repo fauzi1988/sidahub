@@ -35,8 +35,8 @@ class JabatanPegawaiController extends Controller
         $pegawai = Pegawai::findOrFail($data['id_pegawai']);
 
         return redirect()
-            ->route('pendidikan.create', ['id_pegawai' => $pegawai->id_pegawai])
-            ->with('success', 'Data jabatan tersimpan. Lengkapi data pendidikan untuk pegawai yang sama.');
+            ->route('pegawai.edit', ['pegawai' => $pegawai, 'tab' => 'jabatan'])
+            ->with('success', 'Data jabatan berhasil ditambahkan.');
     }
 
     public function edit(JabatanPegawai $jabatan_pegawai): View
@@ -53,7 +53,7 @@ class JabatanPegawaiController extends Controller
         $pegawai = Pegawai::findOrFail($data['id_pegawai']);
 
         return redirect()
-            ->route('pegawai.show', ['pegawai' => $pegawai, 'tab' => 'jabatan'])
+            ->route('pegawai.edit', ['pegawai' => $pegawai, 'tab' => 'jabatan'])
             ->with('success', 'Data jabatan berhasil diperbarui.');
     }
 

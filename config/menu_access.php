@@ -20,7 +20,6 @@ return [
             'icon' => 'fa-users purple_color',
             'items' => [
                 ['key' => 'kepegawaian.pegawai', 'label' => 'Data Pegawai', 'route' => 'pegawai.index'],
-                ['key' => 'kepegawaian.pendidikan', 'label' => 'Pendidikan', 'route' => 'pendidikan.index'],
                 ['key' => 'kepegawaian.persuratan.surat_keluar', 'label' => 'Persuratan - Surat Keluar', 'route' => 'persuratan-surat-keluar.index'],
                 ['key' => 'kepegawaian.persuratan.approve_kabid', 'label' => 'Persuratan - Approve Kabid', 'route' => 'persuratan-surat-keluar.approve-kabid'],
                 ['key' => 'kepegawaian.persuratan.approve_sekretariat', 'label' => 'Persuratan - Approve Sekretariat', 'route' => 'persuratan-surat-keluar.approve-sekretariat'],

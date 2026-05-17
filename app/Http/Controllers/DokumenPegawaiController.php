@@ -6,6 +6,7 @@ use App\Models\DokumenPegawai;
 use App\Models\Pegawai;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class DokumenPegawaiController extends Controller
@@ -44,9 +45,63 @@ class DokumenPegawaiController extends Controller
         $data['file_dokumen'] = $request->file('file_dokumen')->store('pegawai/dokumen', 'public');
         DokumenPegawai::create($data);
         $pegawai = Pegawai::findOrFail($data['id_pegawai']);
+        $redirectToEdit = $request->boolean('from_pegawai_edit');
 
         return redirect()
-            ->route('dokumen-pegawai.create', ['id_pegawai' => $pegawai->id_pegawai])
-            ->with('success', 'Dokumen tersimpan. Silakan tambahkan dokumen lainnya atau klik Simpan untuk selesai.');
+            ->route($redirectToEdit ? 'pegawai.edit' : 'dokumen-pegawai.create', $redirectToEdit
+                ? ['pegawai' => $pegawai, 'tab' => 'dokumen']
+                : ['id_pegawai' => $pegawai->id_pegawai])
+            ->with('success', $redirectToEdit
+                ? 'Dokumen berhasil diunggah.'
+                : 'Dokumen tersimpan. Silakan tambahkan dokumen lainnya atau klik Simpan untuk selesai.');
+    }
+
+    public function edit(DokumenPegawai $dokumen_pegawai): View
+    {
+        $dokumen_pegawai->load('pegawai');
+
+        return view('admin.Kepegawaian.dokumen.edit', ['dokumen' => $dokumen_pegawai]);
+    }
+
+    public function update(Request $request, DokumenPegawai $dokumen_pegawai): RedirectResponse
+    {
+        $data = $request->validate([
+            'nama_dokumen' => ['required', 'string', 'max:150'],
+            'file_dokumen' => ['nullable', 'file', 'max:5120'],
+        ]);
+
+        if ($request->hasFile('file_dokumen')) {
+            if ($dokumen_pegawai->file_dokumen) {
+                Storage::disk('public')->delete($dokumen_pegawai->file_dokumen);
+            }
+            $data['file_dokumen'] = $request->file('file_dokumen')->store('pegawai/dokumen', 'public');
+        } else {
+            unset($data['file_dokumen']);
+        }
+
+        $dokumen_pegawai->update($data);
+
+        $pegawai = Pegawai::findOrFail($dokumen_pegawai->id_pegawai);
+
+        return redirect()
+            ->route('pegawai.edit', ['pegawai' => $pegawai, 'tab' => 'dokumen'])
+            ->with('success', 'Dokumen berhasil diperbarui.');
+    }
+
+    public function destroy(DokumenPegawai $dokumen_pegawai): RedirectResponse
+    {
+        $idPegawai = $dokumen_pegawai->id_pegawai;
+
+        if ($dokumen_pegawai->file_dokumen) {
+            Storage::disk('public')->delete($dokumen_pegawai->file_dokumen);
+        }
+
+        $dokumen_pegawai->delete();
+
+        $pegawai = Pegawai::findOrFail($idPegawai);
+
+        return redirect()
+            ->route('pegawai.edit', ['pegawai' => $pegawai, 'tab' => 'dokumen'])
+            ->with('success', 'Dokumen berhasil dihapus.');
     }
 }

@@ -155,5 +155,6 @@
       <!-- custom js -->
       <script src="{{ asset('back/pluto/js/custom.js') }}"></script>
       <script src="{{ asset('back/pluto/js/chart_custom_style1.js') }}"></script>
+      @stack('scripts')
    </body>
 </html>

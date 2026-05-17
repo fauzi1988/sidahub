@@ -53,9 +53,50 @@ class PegawaiController extends Controller
         return view('admin.Kepegawaian.pegawai.show', compact('pegawai', 'activeTab'));
     }
 
-    public function edit(Pegawai $pegawai): View
+    public function edit(Request $request, Pegawai $pegawai): View
     {
-        return view('admin.Kepegawaian.pegawai.edit', compact('pegawai'));
+        $pegawai->load([
+            'jabatanPegawai' => fn ($q) => $q->orderByDesc('tmt')->orderByDesc('id_jabatan'),
+            'pendidikanPegawai' => fn ($q) => $q->orderByDesc('tahun_lulus')->orderByDesc('id_pendidikan'),
+            'dokumenPegawai' => fn ($q) => $q->orderByDesc('id_dokumen'),
+        ]);
+
+        $allowedTabs = ['pegawai', 'jabatan'];
+        if ($request->user()->hasPermission('kepegawaian.pegawai')) {
+            $allowedTabs[] = 'pendidikan';
+            $allowedTabs[] = 'dokumen';
+        }
+
+        $activeTab = $request->query('tab');
+        if (! in_array($activeTab, $allowedTabs, true)) {
+            $activeTab = 'pegawai';
+        }
+
+        $editJabatan = null;
+        if ($request->filled('jabatan')) {
+            $editJabatan = $pegawai->jabatanPegawai
+                ->firstWhere('id_jabatan', (int) $request->query('jabatan'));
+        }
+
+        $editPendidikan = null;
+        if ($request->filled('pendidikan')) {
+            $editPendidikan = $pegawai->pendidikanPegawai
+                ->firstWhere('id_pendidikan', (int) $request->query('pendidikan'));
+        }
+
+        $editDokumen = null;
+        if ($request->filled('dokumen')) {
+            $editDokumen = $pegawai->dokumenPegawai
+                ->firstWhere('id_dokumen', (int) $request->query('dokumen'));
+        }
+
+        return view('admin.Kepegawaian.pegawai.edit', compact(
+            'pegawai',
+            'activeTab',
+            'editJabatan',
+            'editPendidikan',
+            'editDokumen',
+        ));
     }
 
     public function update(Request $request, Pegawai $pegawai): RedirectResponse
@@ -71,20 +112,9 @@ class PegawaiController extends Controller
 
         $pegawai->update($data);
 
-        $jabatanTerbaru = $pegawai->jabatanPegawai()
-            ->orderByDesc('tmt')
-            ->orderByDesc('id_jabatan')
-            ->first();
-
-        if ($jabatanTerbaru) {
-            return redirect()
-                ->route('jabatan-pegawai.edit', $jabatanTerbaru)
-                ->with('success', 'Data pegawai diperbarui. Silakan lanjutkan pengeditan jabatan.');
-        }
-
         return redirect()
-            ->route('jabatan-pegawai.create', ['id_pegawai' => $pegawai->id_pegawai])
-            ->with('success', 'Data pegawai diperbarui. Belum ada data jabatan, silakan tambahkan.');
+            ->route('pegawai.edit', ['pegawai' => $pegawai, 'tab' => 'pegawai'])
+            ->with('success', 'Data pegawai berhasil diperbarui.');
     }
 
     public function destroy(Pegawai $pegawai): RedirectResponse

@@ -3,7 +3,7 @@
 <div class="row">
    <div class="col-12">
       <div class="page_title mb-4">
-         <h2 class="mb-0">Tambah PegawaiTESTINGGGITHUB</h2>
+         <h2 class="mb-0">Tambah Pegawai</h2>
       </div>
    </div>
 </div>

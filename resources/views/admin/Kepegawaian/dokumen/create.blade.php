@@ -82,6 +82,7 @@
                   <tr>
                      <th>Nama Dokumen</th>
                      <th>File</th>
+                     <th>Aksi</th>
                   </tr>
                </thead>
                <tbody>
@@ -90,6 +91,16 @@
                      <td>{{ $row->nama_dokumen }}</td>
                      <td>
                         <a href="{{ asset('storage/'.$row->file_dokumen) }}" target="_blank" rel="noopener">Lihat Dokumen</a>
+                     </td>
+                     <td>
+                        <div class="btn-actions btn-actions--compact">
+                           <a href="{{ route('dokumen-pegawai.edit', $row) }}" class="btn btn-sm btn-warning">Edit</a>
+                           <form action="{{ route('dokumen-pegawai.destroy', $row) }}" method="POST" class="d-inline" onsubmit="return confirm('Yakin hapus dokumen ini?');">
+                              @csrf
+                              @method('DELETE')
+                              <button type="submit" class="btn btn-sm btn-danger">Hapus</button>
+                           </form>
+                        </div>
                      </td>
                   </tr>
                   @endforeach

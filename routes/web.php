@@ -13,6 +13,7 @@ use App\Http\Controllers\PenyerahanKarcisController;
 use App\Http\Controllers\PenerimaanKarcisController;
 use App\Http\Controllers\PetugasKarcisController;
 use App\Http\Controllers\PersuratanController;
+use App\Http\Controllers\SuratMasukController;
 use App\Http\Controllers\PendidikanController;
 use App\Http\Controllers\UserAccountController;
 use Illuminate\Support\Facades\Route;
@@ -22,6 +23,9 @@ Route::get('/', function () {
         ? redirect('/admin/dashboard')
         : redirect()->route('login');
 });
+
+Route::get('/verifikasi/surat-keluar/{code}', [PersuratanController::class, 'verify'])
+    ->name('persuratan-surat-keluar.verify');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -116,9 +120,6 @@ Route::middleware('auth')->group(function () {
             ->name('jabatan-pegawai.edit');
         Route::put('/admin/kepegawaian/pegawai/jabatan/{jabatan_pegawai}', [JabatanPegawaiController::class, 'update'])
             ->name('jabatan-pegawai.update');
-    });
-
-    Route::middleware('permission:kepegawaian.pendidikan')->group(function () {
         Route::resource('/admin/kepegawaian/pendidikan', PendidikanController::class)
             ->parameters(['pendidikan' => 'pendidikan_pegawai'])
             ->names('pendidikan');
@@ -126,6 +127,12 @@ Route::middleware('auth')->group(function () {
             ->name('dokumen-pegawai.create');
         Route::post('/admin/kepegawaian/dokumen', [DokumenPegawaiController::class, 'store'])
             ->name('dokumen-pegawai.store');
+        Route::get('/admin/kepegawaian/dokumen/{dokumen_pegawai}/edit', [DokumenPegawaiController::class, 'edit'])
+            ->name('dokumen-pegawai.edit');
+        Route::put('/admin/kepegawaian/dokumen/{dokumen_pegawai}', [DokumenPegawaiController::class, 'update'])
+            ->name('dokumen-pegawai.update');
+        Route::delete('/admin/kepegawaian/dokumen/{dokumen_pegawai}', [DokumenPegawaiController::class, 'destroy'])
+            ->name('dokumen-pegawai.destroy');
     });
 
     Route::middleware('permission:kepegawaian.persuratan.approve_kabid')->group(function () {
@@ -144,6 +151,10 @@ Route::middleware('auth')->group(function () {
             ->name('persuratan-surat-keluar.sekretariat-forward');
         Route::post('/admin/kepegawaian/persuratan/surat_keluar/{persuratan}/sekretariat-number-send', [PersuratanController::class, 'sekretariatNumberAndSend'])
             ->name('persuratan-surat-keluar.sekretariat-number-send');
+        Route::post('/admin/kepegawaian/persuratan/surat_keluar/{persuratan}/sekretariat-revisi', [PersuratanController::class, 'sekretariatRevise'])
+            ->name('persuratan-surat-keluar.sekretariat-revisi');
+        Route::get('/admin/kepegawaian/persuratan/surat_keluar/{persuratan}/suggest-nomor', [PersuratanController::class, 'suggestNomor'])
+            ->name('persuratan-surat-keluar.suggest-nomor');
     });
 
     Route::middleware('permission:kepegawaian.persuratan.approve_kadis')->group(function () {
@@ -151,6 +162,8 @@ Route::middleware('auth')->group(function () {
             ->name('persuratan-surat-keluar.approve-kadis');
         Route::post('/admin/kepegawaian/persuratan/surat_keluar/{persuratan}/kadis-sign', [PersuratanController::class, 'kadisSign'])
             ->name('persuratan-surat-keluar.kadis-sign');
+        Route::post('/admin/kepegawaian/persuratan/surat_keluar/{persuratan}/kadis-revisi', [PersuratanController::class, 'kadisRevise'])
+            ->name('persuratan-surat-keluar.kadis-revisi');
     });
 
     Route::middleware('permission:kepegawaian.persuratan.surat_keluar')->group(function () {
@@ -158,6 +171,10 @@ Route::middleware('auth')->group(function () {
             ->name('persuratan-surat-keluar.print');
         Route::post('/admin/kepegawaian/persuratan/surat_keluar/{persuratan}/submit', [PersuratanController::class, 'submit'])
             ->name('persuratan-surat-keluar.submit');
+        Route::post('/admin/kepegawaian/persuratan/surat_keluar/{persuratan}/cancel', [PersuratanController::class, 'cancel'])
+            ->name('persuratan-surat-keluar.cancel');
+        Route::post('/admin/kepegawaian/persuratan/surat_keluar/{persuratan}/archive', [PersuratanController::class, 'archive'])
+            ->name('persuratan-surat-keluar.archive');
         Route::resource('/admin/kepegawaian/persuratan/surat_keluar', PersuratanController::class)
             ->parameters(['surat_keluar' => 'persuratan'])
             ->names('persuratan-surat-keluar');
@@ -165,7 +182,7 @@ Route::middleware('auth')->group(function () {
         Route::name('persuratan-surat-masuk.')
             ->prefix('/admin/kepegawaian/persuratan/surat_masuk')
             ->group(function () {
-                Route::view('/', 'admin.Kepegawaian.persuratan.surat_masuk.index')->name('index');
+                Route::get('/', [SuratMasukController::class, 'index'])->name('index');
             });
 
         Route::name('persuratan-disposisi.')

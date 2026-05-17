@@ -137,7 +137,7 @@
 
          <div class="tab-pane fade {{ $activeTab === 'pendidikan' ? 'show active' : '' }}" id="panel-pendidikan" role="tabpanel">
             <div class="mb-3 btn-actions">
-               <a href="{{ route('pendidikan.create', ['id_pegawai' => $pegawai->id_pegawai]) }}" class="btn btn-primary btn-sm">Tambah Pendidikan</a>
+               <a href="{{ route('pegawai.edit', ['pegawai' => $pegawai, 'tab' => 'pendidikan']) }}" class="btn btn-primary btn-sm">Kelola Pendidikan</a>
             </div>
             @if($pegawai->pendidikanPegawai->isEmpty())
                <p class="text-muted mb-0">Belum ada data pendidikan untuk pegawai ini.</p>
@@ -162,8 +162,7 @@
                            <td>{{ $pd->tahun_lulus }}</td>
                            <td>
                               <div class="btn-actions btn-actions--compact">
-                                 <a href="{{ route('pendidikan.show', $pd) }}" class="btn btn-sm btn-secondary">Detail</a>
-                                 <a href="{{ route('pendidikan.edit', $pd) }}" class="btn btn-sm btn-warning">Edit</a>
+                                 <a href="{{ route('pegawai.edit', ['pegawai' => $pegawai, 'tab' => 'pendidikan', 'pendidikan' => $pd->id_pendidikan]) }}" class="btn btn-sm btn-warning">Edit</a>
                                  <form action="{{ route('pendidikan.destroy', $pd) }}" method="POST" class="d-inline" onsubmit="return confirm('Yakin hapus?');">
                                     @csrf
                                     @method('DELETE')

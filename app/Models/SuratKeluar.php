@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class SuratKeluar extends Model
 {
@@ -25,11 +27,26 @@ class SuratKeluar extends Model
         'status',
         'id_pegawai_pengusul',
         'id_pegawai_penandatangan',
+        'unit_kerja',
+        'created_by_user_id',
         'jenis_ttd',
         'ttd_management_id',
         'ringkasan',
         'isi_surat',
         'catatan',
+        'lampiran',
+        'verification_code',
+        'alasan_batal',
+        'submitted_at',
+        'reviewed_at',
+        'verified_at',
+        'forwarded_to_kadis_at',
+        'signed_at',
+        'cancelled_at',
+        'archived_at',
+        'reviewed_by_kabid_user_id',
+        'verified_by_sekretariat_user_id',
+        'signed_by_kadis_user_id',
     ];
 
     public function getRouteKeyName(): string
@@ -42,6 +59,14 @@ class SuratKeluar extends Model
         return [
             'tanggal_surat' => 'date',
             'tanggal_kirim' => 'date',
+            'lampiran' => 'array',
+            'submitted_at' => 'datetime',
+            'reviewed_at' => 'datetime',
+            'verified_at' => 'datetime',
+            'forwarded_to_kadis_at' => 'datetime',
+            'signed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'archived_at' => 'datetime',
         ];
     }
 
@@ -55,6 +80,11 @@ class SuratKeluar extends Model
         return $this->belongsTo(Pegawai::class, 'id_pegawai_penandatangan', 'id_pegawai');
     }
 
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
     public function ttdManagement(): BelongsTo
     {
         return $this->belongsTo(ManajemenTtd::class, 'ttd_management_id', 'id_ttd');
@@ -63,6 +93,51 @@ class SuratKeluar extends Model
     public function logs(): HasMany
     {
         return $this->hasMany(SuratKeluarLog::class, 'surat_keluar_id', 'id_surat_keluar');
+    }
+
+    public function suratMasuk(): HasOne
+    {
+        return $this->hasOne(SuratMasuk::class, 'surat_keluar_id', 'id_surat_keluar');
+    }
+
+    public function isEditable(): bool
+    {
+        return in_array($this->status, ['draft', 'revisi_substansi', 'revisi_admin'], true);
+    }
+
+    public function isDeletable(): bool
+    {
+        return in_array($this->status, ['draft', 'revisi_substansi', 'revisi_admin'], true);
+    }
+
+    public function canBePrinted(): bool
+    {
+        return in_array($this->status, ['dikirim', 'diarsipkan'], true);
+    }
+
+    public function jenisSuratLabel(): string
+    {
+        return self::jenisSuratOptions()[$this->jenis_surat] ?? $this->jenis_surat;
+    }
+
+    public function statusBadgeClass(): string
+    {
+        return match ($this->status) {
+            'draft', 'revisi_substansi', 'revisi_admin' => 'secondary',
+            'menunggu_review_substansi', 'menunggu_verifikasi', 'menunggu_ttd' => 'warning',
+            'disetujui' => 'info',
+            'dikirim', 'diarsipkan' => 'success',
+            'dibatalkan' => 'danger',
+            default => 'light',
+        };
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function editableStatuses(): array
+    {
+        return ['draft', 'revisi_substansi', 'revisi_admin'];
     }
 
     public static function jenisSuratOptions(): array
@@ -100,22 +175,16 @@ class SuratKeluar extends Model
     {
         return [
             'draft' => 'Draft',
-            'menunggu_verifikasi' => 'Menunggu Verifikasi',
-            'revisi_admin' => 'Revisi Admin',
-            'menunggu_review_substansi' => 'Menunggu Review Substansi',
+            'menunggu_review_substansi' => 'Menunggu Review Kabid',
             'revisi_substansi' => 'Revisi Substansi',
-            'menunggu_paraf' => 'Menunggu Paraf',
-            'menunggu_ttd' => 'Menunggu Tanda Tangan',
-            'disetujui' => 'Disetujui',
+            'menunggu_verifikasi' => 'Menunggu Verifikasi Sekretariat',
+            'revisi_admin' => 'Revisi Administrasi',
+            'menunggu_ttd' => 'Menunggu Tanda Tangan Kadis',
+            'disetujui' => 'Disetujui (Menunggu Nomor)',
             'dikirim' => 'Dikirim',
             'diarsipkan' => 'Diarsipkan',
             'dibatalkan' => 'Dibatalkan',
         ];
-    }
-
-    public function canBePrinted(): bool
-    {
-        return in_array($this->status, ['dikirim', 'diarsipkan'], true);
     }
 
     public static function jenisTtdOptions(): array
@@ -125,5 +194,45 @@ class SuratKeluar extends Model
             'basah' => 'TTD Basah',
             'scan' => 'TTD Scan',
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function isiTemplates(): array
+    {
+        return [
+            'surat_dinas' => "Dengan hormat,\n\n[Buka paragraf isi surat dinas di sini]\n\nDemikian surat ini kami sampaikan, atas perhatian dan kerja samanya diucapkan terima kasih.",
+            'nota_dinas' => "Hal : [perihal]\n\nKepada Yth. [nama penerima internal]\n\n[Buka isi nota dinas]\n\nDemikian untuk menjadi perhatian dan arahan Bapak/Ibu.",
+            'surat_tugas' => "Dasar:\n1. [dasar hukum/keputusan]\n\nMemberikan tugas kepada:\nNama : \nNIP  : \nJabatan : \n\nUntuk melaksanakan: [uraian tugas]\n\nPelaksanaan tugas pada tanggal [tanggal].",
+            'undangan' => "Mengharap kehadiran Bapak/Ibu pada:\n\nHari/Tanggal : \nWaktu        : \nTempat       : \nAcara        : \n\nDemikian undangan ini disampaikan.",
+            'memo_internal' => "Kepada seluruh unit kerja terkait,\n\n[Buka isi memo internal]\n\nMohon dipedomani dan dilaksanakan.",
+            'balasan' => "Menindaklanjuti surat [nomor/tanggal surat masuk] perihal [perihal], dengan hormat kami sampaikan hal sebagai berikut:\n\n[Buka isi balasan]",
+        ];
+    }
+
+    public function scopeForInboxOperator(Builder $query, ?int $idPegawai, ?int $userId): Builder
+    {
+        if (! $idPegawai && ! $userId) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $q) use ($idPegawai, $userId) {
+            if ($idPegawai) {
+                $q->where('id_pegawai_pengusul', $idPegawai);
+            }
+            if ($userId) {
+                $q->orWhere('created_by_user_id', $userId);
+            }
+        });
+    }
+
+    public function scopeForUnitKerja(Builder $query, ?string $unitKerja): Builder
+    {
+        if (! $unitKerja) {
+            return $query;
+        }
+
+        return $query->where('unit_kerja', $unitKerja);
     }
 }

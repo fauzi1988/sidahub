@@ -88,7 +88,9 @@
    @endif
 </div>
 
+@if($showActions ?? true)
 <div class="mt-4 btn-actions">
    <button type="submit" class="btn btn-primary">{{ $isEdit ? 'Update' : 'Simpan' }}</button>
    <a href="{{ route('pegawai.index') }}" class="btn btn-secondary">Kembali</a>
 </div>
+@endif

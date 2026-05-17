@@ -2,40 +2,55 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreSuratKeluarRequest;
+use App\Http\Requests\SuratKeluarKadisSignRequest;
+use App\Http\Requests\SuratKeluarSekretariatNumberRequest;
+use App\Http\Requests\SuratKeluarWorkflowNoteRequest;
+use App\Http\Requests\UpdateSuratKeluarRequest;
 use App\Models\JabatanPegawai;
 use App\Models\ManajemenTtd;
 use App\Models\Pegawai;
 use App\Models\SuratKeluar;
-use App\Models\SuratKeluarLog;
+use App\Models\SuratMasuk;
+use App\Services\SuratKeluarNomorService;
+use App\Services\SuratKeluarWorkflowService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use InvalidArgumentException;
 
 class PersuratanController extends Controller
 {
     private const APPROVAL_STAGE_CONFIG = [
         'kabid' => [
-            'status' => 'menunggu_review_substansi',
+            'statuses' => ['menunggu_review_substansi'],
             'title' => 'Halaman Approve Kabid',
         ],
         'sekretariat' => [
-            'status' => null,
             'statuses' => ['menunggu_verifikasi', 'disetujui'],
             'title' => 'Halaman Approve Sekretariat',
         ],
         'kadis' => [
-            'status' => 'menunggu_ttd',
+            'statuses' => ['menunggu_ttd'],
             'title' => 'Halaman Approve Kepala Dinas',
         ],
     ];
 
+    public function __construct(
+        private readonly SuratKeluarWorkflowService $workflow,
+        private readonly SuratKeluarNomorService $nomorService,
+    ) {}
+
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', SuratKeluar::class);
+
         $flowRoles = $this->flowRoles($request);
-        $query = $this->baseListQuery($request);
+        $query = $this->baseListQuery($request, $flowRoles);
         $inboxMode = $request->boolean('inbox');
+
         if ($inboxMode && ! $request->filled('status')) {
             $inboxStatuses = $this->inboxStatuses($flowRoles);
             if (! empty($inboxStatuses)) {
@@ -43,92 +58,126 @@ class PersuratanController extends Controller
             }
         }
 
-        $list = $query->paginate(10)->withQueryString();
-        $statusOptions = SuratKeluar::statusOptions();
-        $ttdOptions = $this->activeTtdOptions();
-
-        $pageTitle = 'Persuratan (Surat Keluar)';
-        $isApprovalPage = false;
-        $currentApprovalStage = null;
-
-        return view('admin.Kepegawaian.persuratan.surat_keluar.index', compact('list', 'statusOptions', 'flowRoles', 'inboxMode', 'pageTitle', 'isApprovalPage', 'ttdOptions', 'currentApprovalStage'));
+        return $this->listView($request, $query, $flowRoles, $inboxMode, 'Persuratan (Surat Keluar)', false, null);
     }
 
     public function approveKabid(Request $request): View
     {
-        abort_unless($this->isKabid($request), 403, 'Halaman ini hanya untuk Kepala Bidang.');
+        abort_unless($this->isKabid($request), 403);
 
         return $this->approvalStagePage($request, 'kabid');
     }
 
     public function approveSekretariat(Request $request): View
     {
-        abort_unless($this->isSekretariat($request), 403, 'Halaman ini hanya untuk Sekretariat.');
+        abort_unless($this->isSekretariat($request), 403);
 
         return $this->approvalStagePage($request, 'sekretariat');
     }
 
     public function approveKadis(Request $request): View
     {
-        abort_unless($this->isKadis($request), 403, 'Halaman ini hanya untuk Kepala Dinas.');
+        abort_unless($this->isKadis($request), 403);
 
         return $this->approvalStagePage($request, 'kadis');
     }
 
     public function create(): View
     {
-        $pegawaiOptions = Pegawai::query()
-            ->orderBy('nama_lengkap')
-            ->get(['id_pegawai', 'nama_lengkap', 'nip']);
-        $kadisPegawai = $this->resolveKadisPegawai();
+        $this->authorize('create', SuratKeluar::class);
 
-        return view('admin.Kepegawaian.persuratan.surat_keluar.create', compact('pegawaiOptions', 'kadisPegawai'));
+        $pegawaiOptions = Pegawai::query()->orderBy('nama_lengkap')->get(['id_pegawai', 'nama_lengkap', 'nip']);
+        $kadisPegawai = $this->resolveKadisPegawai();
+        $isiTemplates = SuratKeluar::isiTemplates();
+        $userPegawai = auth()->user()?->pegawai;
+
+        return view('admin.Kepegawaian.persuratan.surat_keluar.create', compact(
+            'pegawaiOptions',
+            'kadisPegawai',
+            'isiTemplates',
+            'userPegawai',
+        ));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreSuratKeluarRequest $request): RedirectResponse
     {
-        $data = $request->validate($this->rules());
-        if (! isset($data['id_pegawai_penandatangan']) || ! $data['id_pegawai_penandatangan']) {
-            $kadisPegawai = $this->resolveKadisPegawai();
-            if ($kadisPegawai) {
-                $data['id_pegawai_penandatangan'] = $kadisPegawai->id_pegawai;
+        $data = $request->validated();
+        $user = $request->user();
+
+        $data['status'] = 'draft';
+        $data['nomor_surat'] = null;
+        $data['created_by_user_id'] = $user?->id;
+        $data['id_pegawai_pengusul'] = $data['id_pegawai_pengusul'] ?? $user?->id_pegawai;
+        $data['unit_kerja'] = $this->resolveUnitKerja((int) ($data['id_pegawai_pengusul'] ?? 0));
+        $data['lampiran'] = $this->storeLampiran($request, []);
+
+        if (empty($data['id_pegawai_penandatangan'])) {
+            $kadis = $this->resolveKadisPegawai();
+            if ($kadis) {
+                $data['id_pegawai_penandatangan'] = $kadis->id_pegawai;
             }
         }
-        if (empty(trim((string) ($data['nomor_surat'] ?? '')))) {
-            $data['nomor_surat'] = null;
-        }
+
         SuratKeluar::create($data);
 
         return redirect()
-            ->route('persuratan-surat-keluar.index')
-            ->with('success', 'Surat keluar berhasil ditambahkan.');
+            ->route('persuratan-surat-keluar.index', ['inbox' => 1])
+            ->with('success', 'Draft surat keluar berhasil dibuat.');
     }
 
     public function show(SuratKeluar $persuratan): View
     {
+        $this->authorize('view', $persuratan);
+
         $persuratan->load([
             'pengusul:id_pegawai,nama_lengkap,nip',
             'penandatangan:id_pegawai,nama_lengkap,nip',
+            'createdBy:id,name',
             'logs.user:id,name',
-            'ttdManagement:id_ttd,nama_ttd,jenis_ttd',
+            'ttdManagement:id_ttd,nama_ttd,jenis_ttd,file_ttd',
+            'suratMasuk',
         ]);
+
         $flowRoles = $this->flowRoles(request());
         $ttdOptions = $this->activeTtdOptions();
+        $suggestedNomor = $this->nomorService->suggestNext(
+            (int) optional($persuratan->tanggal_surat)->format('Y')
+        );
 
-        return view('admin.Kepegawaian.persuratan.surat_keluar.show', compact('persuratan', 'flowRoles', 'ttdOptions'));
+        return view('admin.Kepegawaian.persuratan.surat_keluar.show', compact(
+            'persuratan',
+            'flowRoles',
+            'ttdOptions',
+            'suggestedNomor',
+        ));
+    }
+
+    public function verify(string $code): View
+    {
+        $persuratan = SuratKeluar::query()
+            ->where('verification_code', $code)
+            ->whereIn('status', ['dikirim', 'diarsipkan'])
+            ->firstOrFail();
+
+        return view('admin.Kepegawaian.persuratan.surat_keluar.verify', compact('persuratan'));
     }
 
     public function print(SuratKeluar $persuratan)
     {
-        abort_unless($persuratan->canBePrinted(), 403, 'Surat hanya dapat dicetak setelah ditandatangani.');
+        $this->authorize('view', $persuratan);
+        abort_unless($persuratan->canBePrinted(), 403, 'Surat hanya dapat dicetak setelah dinomori dan berstatus dikirim.');
 
         $persuratan->load([
             'pengusul:id_pegawai,nama_lengkap,nip',
             'penandatangan:id_pegawai,nama_lengkap,nip',
+            'ttdManagement:id_ttd,nama_ttd,jenis_ttd,file_ttd',
         ]);
 
         $pdf = Pdf::loadView('admin.Kepegawaian.persuratan.surat_keluar.print', [
             'persuratan' => $persuratan,
+            'verifyUrl' => $persuratan->verification_code
+                ? route('persuratan-surat-keluar.verify', $persuratan->verification_code)
+                : null,
         ])->setPaper('A4', 'portrait');
 
         $filename = 'surat-keluar-'.($persuratan->nomor_surat
@@ -140,155 +189,207 @@ class PersuratanController extends Controller
 
     public function submit(Request $request, SuratKeluar $persuratan): RedirectResponse
     {
-        abort_unless($this->isOperator($request), 403);
-        abort_unless($persuratan->status === 'draft' || $persuratan->status === 'revisi_substansi', 422, 'Status surat tidak valid untuk dikirim.');
+        $this->authorize('submit', $persuratan);
 
-        $from = $persuratan->status;
-        $persuratan->update([
-            'status' => 'menunggu_review_substansi',
-            'submitted_at' => now(),
-        ]);
+        try {
+            $this->workflow->submit($persuratan, $request, $request->input('note'));
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['workflow' => $e->getMessage()]);
+        }
 
-        $this->logFlow($persuratan, $request, 'submit_ke_kabid', $from, 'menunggu_review_substansi', $request->input('note'));
-
-        return back()->with('success', 'Surat berhasil dikirim ke Kepala Bidang untuk koreksi.');
+        return back()->with('success', 'Surat berhasil dikirim ke Kepala Bidang.');
     }
 
     public function kabidApprove(Request $request, SuratKeluar $persuratan): RedirectResponse
     {
         abort_unless($this->isKabid($request), 403);
-        abort_unless($persuratan->status === 'menunggu_review_substansi', 422, 'Status surat tidak valid untuk approval Kabid.');
 
-        $from = $persuratan->status;
-        $persuratan->update([
-            'status' => 'menunggu_verifikasi',
-            'reviewed_at' => now(),
-            'reviewed_by_kabid_user_id' => $request->user()->id,
-        ]);
+        try {
+            $this->workflow->kabidApprove($persuratan, $request, $request->input('note'));
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['workflow' => $e->getMessage()]);
+        }
 
-        $this->logFlow($persuratan, $request, 'approve_kabid', $from, 'menunggu_verifikasi', $request->input('note'));
-
-        return back()->with('success', 'Surat disetujui Kepala Bidang dan diteruskan ke Sekretariat.');
+        return back()->with('success', 'Surat disetujui Kabid dan diteruskan ke Sekretariat.');
     }
 
-    public function kabidRevise(Request $request, SuratKeluar $persuratan): RedirectResponse
+    public function kabidRevise(SuratKeluarWorkflowNoteRequest $request, SuratKeluar $persuratan): RedirectResponse
     {
         abort_unless($this->isKabid($request), 403);
-        abort_unless($persuratan->status === 'menunggu_review_substansi', 422, 'Status surat tidak valid untuk revisi Kabid.');
 
-        $data = $request->validate([
-            'note' => ['required', 'string', 'max:2000'],
-        ]);
+        try {
+            $this->workflow->kabidRevise($persuratan, $request, $request->validated('note'));
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['workflow' => $e->getMessage()]);
+        }
 
-        $from = $persuratan->status;
-        $persuratan->update([
-            'status' => 'revisi_substansi',
-        ]);
-
-        $this->logFlow($persuratan, $request, 'revisi_kabid', $from, 'revisi_substansi', $data['note']);
-
-        return back()->with('success', 'Surat dikembalikan ke operator untuk revisi.');
+        return back()->with('success', 'Surat dikembalikan ke operator untuk revisi substansi.');
     }
 
     public function sekretariatForward(Request $request, SuratKeluar $persuratan): RedirectResponse
     {
         abort_unless($this->isSekretariat($request), 403);
-        abort_unless($persuratan->status === 'menunggu_verifikasi', 422, 'Status surat tidak valid untuk Sekretariat.');
 
-        $from = $persuratan->status;
-        $persuratan->update([
-            'status' => 'menunggu_ttd',
-            'verified_at' => now(),
-            'forwarded_to_kadis_at' => now(),
-            'verified_by_sekretariat_user_id' => $request->user()->id,
-        ]);
+        try {
+            $this->workflow->sekretariatForward($persuratan, $request, $request->input('note'));
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['workflow' => $e->getMessage()]);
+        }
 
-        $this->logFlow($persuratan, $request, 'teruskan_sekretariat_ke_kadis', $from, 'menunggu_ttd', $request->input('note'));
-
-        return back()->with('success', 'Surat diteruskan ke Kepala Dinas untuk penandatanganan.');
+        return back()->with('success', 'Surat diteruskan ke Kepala Dinas.');
     }
 
-    public function kadisSign(Request $request, SuratKeluar $persuratan): RedirectResponse
+    public function sekretariatRevise(SuratKeluarWorkflowNoteRequest $request, SuratKeluar $persuratan): RedirectResponse
     {
-        abort_unless($this->isKadis($request), 403);
-        abort_unless($persuratan->status === 'menunggu_ttd', 422, 'Status surat tidak valid untuk tanda tangan Kepala Dinas.');
-        $data = $request->validate([
-            'jenis_ttd' => ['required', Rule::in(array_keys(SuratKeluar::jenisTtdOptions()))],
-            'ttd_management_id' => ['required', 'integer', 'exists:manajemen_ttd,id_ttd'],
-        ]);
+        abort_unless($this->isSekretariat($request), 403);
+
+        try {
+            $this->workflow->sekretariatRevise($persuratan, $request, $request->validated('note'));
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['workflow' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'Surat dikembalikan untuk revisi administrasi.');
+    }
+
+    public function kadisSign(SuratKeluarKadisSignRequest $request, SuratKeluar $persuratan): RedirectResponse
+    {
+        $data = $request->validated();
         $ttd = ManajemenTtd::query()
             ->where('id_ttd', $data['ttd_management_id'])
             ->where('is_active', true)
             ->first();
+
         abort_unless($ttd !== null, 422, 'Master TTD tidak ditemukan atau tidak aktif.');
-        abort_unless($ttd->jenis_ttd === $data['jenis_ttd'], 422, 'Jenis TTD tidak sesuai dengan master TTD yang dipilih.');
+        abort_unless($ttd->jenis_ttd === $data['jenis_ttd'], 422, 'Jenis TTD tidak sesuai master.');
 
-        $from = $persuratan->status;
-        $persuratan->update([
-            'status' => 'disetujui',
-            'signed_at' => now(),
-            'signed_by_kadis_user_id' => $request->user()->id,
-            'id_pegawai_penandatangan' => $request->user()->id_pegawai ?: $persuratan->id_pegawai_penandatangan,
-            'jenis_ttd' => $data['jenis_ttd'],
-            'ttd_management_id' => $ttd->id_ttd,
-        ]);
+        try {
+            $this->workflow->kadisSign($persuratan, $request, [
+                'jenis_ttd' => $data['jenis_ttd'],
+                'ttd_management_id' => $ttd->id_ttd,
+            ], $data['note'] ?? null);
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['workflow' => $e->getMessage()]);
+        }
 
-        $this->logFlow($persuratan, $request, 'approve_kadis', $from, 'disetujui', 'Jenis TTD: '.$data['jenis_ttd'].' | Master: '.$ttd->nama_ttd);
-
-        return back()->with('success', 'Surat disetujui Kepala Dinas dan dikembalikan ke Sekretariat untuk penomoran.');
+        return back()->with('success', 'Surat ditandatangani Kadis. Menunggu penomoran Sekretariat.');
     }
 
-    public function sekretariatNumberAndSend(Request $request, SuratKeluar $persuratan): RedirectResponse
+    public function kadisRevise(SuratKeluarWorkflowNoteRequest $request, SuratKeluar $persuratan): RedirectResponse
     {
-        abort_unless($this->isSekretariat($request), 403);
-        abort_unless($persuratan->status === 'disetujui', 422, 'Status surat tidak valid untuk penomoran Sekretariat.');
+        abort_unless($this->isKadis($request), 403);
 
-        $data = $request->validate([
-            'nomor_surat' => ['required', 'string', 'max:120', Rule::unique('surat_keluar', 'nomor_surat')->ignore($persuratan->id_surat_keluar, 'id_surat_keluar')],
-            'tanggal_kirim' => ['nullable', 'date', 'after_or_equal:tanggal_surat'],
+        try {
+            $this->workflow->kadisRevise($persuratan, $request, $request->validated('note'));
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['workflow' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'Surat dikembalikan ke Sekretariat untuk perbaikan.');
+    }
+
+    public function sekretariatNumberAndSend(SuratKeluarSekretariatNumberRequest $request, SuratKeluar $persuratan): RedirectResponse
+    {
+        $data = $request->validated();
+        $nomor = $data['nomor_surat'];
+
+        if ($request->boolean('use_suggested')) {
+            $nomor = $this->nomorService->suggestNext((int) optional($persuratan->tanggal_surat)->format('Y'));
+        }
+
+        try {
+            $this->workflow->sekretariatNumberAndSend(
+                $persuratan,
+                $request,
+                $nomor,
+                $data['tanggal_kirim'] ?? null,
+                $data['note'] ?? null,
+            );
+            $this->syncSuratMasukFromKeluar($persuratan->fresh());
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['workflow' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'Nomor surat diberikan. Surat siap dicetak.');
+    }
+
+    public function archive(Request $request, SuratKeluar $persuratan): RedirectResponse
+    {
+        $this->authorize('archive', $persuratan);
+
+        try {
+            $this->workflow->archive($persuratan, $request, $request->input('note'));
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['workflow' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'Surat berhasil diarsipkan.');
+    }
+
+    public function cancel(SuratKeluarWorkflowNoteRequest $request, SuratKeluar $persuratan): RedirectResponse
+    {
+        $this->authorize('cancel', $persuratan);
+
+        try {
+            $this->workflow->cancel($persuratan, $request, $request->validated('note'));
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['workflow' => $e->getMessage()]);
+        }
+
+        return redirect()
+            ->route('persuratan-surat-keluar.index')
+            ->with('success', 'Surat dibatalkan.');
+    }
+
+    public function suggestNomor(SuratKeluar $persuratan)
+    {
+        abort_unless($this->isSekretariat(request()), 403);
+
+        return response()->json([
+            'nomor' => $this->nomorService->suggestNext((int) optional($persuratan->tanggal_surat)->format('Y')),
         ]);
-
-        $from = $persuratan->status;
-        $persuratan->update([
-            'nomor_surat' => $data['nomor_surat'],
-            'tanggal_kirim' => $data['tanggal_kirim'] ?? now()->toDateString(),
-            'status' => 'dikirim',
-        ]);
-
-        $this->logFlow($persuratan, $request, 'sekretariat_nomor_dan_kirim', $from, 'dikirim', $request->input('note'));
-
-        return back()->with('success', 'Nomor surat berhasil diberikan, surat otomatis berstatus dikirim dan siap dicetak.');
     }
 
     public function edit(SuratKeluar $persuratan): View
     {
-        $persuratan->load([
-            'pengusul:id_pegawai,nama_lengkap,nip',
-            'penandatangan:id_pegawai,nama_lengkap,nip',
-        ]);
+        $this->authorize('update', $persuratan);
 
-        $pegawaiOptions = Pegawai::query()
-            ->orderBy('nama_lengkap')
-            ->get(['id_pegawai', 'nama_lengkap', 'nip']);
+        $persuratan->load(['pengusul:id_pegawai,nama_lengkap,nip', 'penandatangan:id_pegawai,nama_lengkap,nip']);
+        $pegawaiOptions = Pegawai::query()->orderBy('nama_lengkap')->get(['id_pegawai', 'nama_lengkap', 'nip']);
+        $isiTemplates = SuratKeluar::isiTemplates();
 
-        return view('admin.Kepegawaian.persuratan.surat_keluar.edit', compact('persuratan', 'pegawaiOptions'));
+        return view('admin.Kepegawaian.persuratan.surat_keluar.edit', compact('persuratan', 'pegawaiOptions', 'isiTemplates'));
     }
 
-    public function update(Request $request, SuratKeluar $persuratan): RedirectResponse
+    public function update(UpdateSuratKeluarRequest $request, SuratKeluar $persuratan): RedirectResponse
     {
-        $data = $request->validate($this->rules($persuratan));
-        if (empty(trim((string) ($data['nomor_surat'] ?? '')))) {
-            $data['nomor_surat'] = null;
-        }
+        $data = $request->validated();
+        unset($data['hapus_lampiran']);
+
+        $lampiran = $persuratan->lampiran ?? [];
+        $lampiran = $this->removeLampiran($lampiran, $request->input('hapus_lampiran', []));
+        $data['lampiran'] = $this->storeLampiran($request, $lampiran);
+        $data['id_pegawai_pengusul'] = $data['id_pegawai_pengusul'] ?? $persuratan->id_pegawai_pengusul;
+        $data['unit_kerja'] = $this->resolveUnitKerja((int) $data['id_pegawai_pengusul']);
+
         $persuratan->update($data);
+        $this->workflow->logContentEdit($persuratan, $request);
 
         return redirect()
-            ->route('persuratan-surat-keluar.index')
-            ->with('success', 'Surat keluar berhasil diperbarui.');
+            ->route('persuratan-surat-keluar.show', $persuratan)
+            ->with('success', 'Surat berhasil diperbarui.');
     }
 
     public function destroy(SuratKeluar $persuratan): RedirectResponse
     {
+        $this->authorize('delete', $persuratan);
+
+        foreach ($persuratan->lampiran ?? [] as $file) {
+            if (! empty($file['path'])) {
+                Storage::disk('public')->delete($file['path']);
+            }
+        }
+
         $persuratan->delete();
 
         return redirect()
@@ -296,31 +397,85 @@ class PersuratanController extends Controller
             ->with('success', 'Surat keluar berhasil dihapus.');
     }
 
-    private function rules(?SuratKeluar $suratKeluar = null): array
+    private function syncSuratMasukFromKeluar(SuratKeluar $surat): void
     {
-        $nomorRule = ['nullable', 'string', 'max:120', Rule::unique('surat_keluar', 'nomor_surat')];
-        if ($suratKeluar) {
-            $nomorRule[3] = Rule::unique('surat_keluar', 'nomor_surat')
-                ->ignore($suratKeluar->id_surat_keluar, 'id_surat_keluar');
+        if ($surat->suratMasuk) {
+            $surat->suratMasuk->update([
+                'nomor_surat' => $surat->nomor_surat,
+                'tanggal_surat' => $surat->tanggal_surat,
+                'perihal' => $surat->perihal,
+            ]);
+
+            return;
         }
 
-        return [
-            'nomor_surat' => $nomorRule,
-            'tanggal_surat' => ['required', 'date'],
-            'tanggal_kirim' => ['nullable', 'date', 'after_or_equal:tanggal_surat'],
-            'perihal' => ['required', 'string', 'max:255'],
-            'tujuan_surat' => ['required', 'string', 'max:255'],
-            'alamat_tujuan' => ['nullable', 'string'],
-            'jenis_surat' => ['required', Rule::in(array_keys(SuratKeluar::jenisSuratOptions()))],
-            'sifat_surat' => ['required', Rule::in(array_keys(SuratKeluar::sifatSuratOptions()))],
-            'prioritas' => ['required', Rule::in(array_keys(SuratKeluar::prioritasOptions()))],
-            'status' => ['required', Rule::in(array_keys(SuratKeluar::statusOptions()))],
-            'id_pegawai_pengusul' => ['nullable', 'exists:pegawai,id_pegawai'],
-            'id_pegawai_penandatangan' => ['nullable', 'exists:pegawai,id_pegawai'],
-            'ringkasan' => ['nullable', 'string'],
-            'isi_surat' => ['nullable', 'string'],
-            'catatan' => ['nullable', 'string'],
-        ];
+        SuratMasuk::create([
+            'nomor_surat' => $surat->nomor_surat,
+            'tanggal_surat' => $surat->tanggal_surat,
+            'tanggal_terima' => $surat->tanggal_kirim,
+            'perihal' => $surat->perihal,
+            'pengirim' => 'Dinas Perhubungan Kab. Haltim',
+            'sifat_surat' => $surat->sifat_surat,
+            'surat_keluar_id' => $surat->id_surat_keluar,
+            'ringkasan' => $surat->ringkasan,
+            'lampiran' => $surat->lampiran,
+        ]);
+    }
+
+    /**
+     * @param  list<array{path: string, name: string, size?: int}>  $existing
+     * @return list<array{path: string, name: string, size: int}>
+     */
+    private function storeLampiran(Request $request, array $existing): array
+    {
+        if (! $request->hasFile('lampiran')) {
+            return $existing;
+        }
+
+        foreach ($request->file('lampiran') as $file) {
+            if (! $file) {
+                continue;
+            }
+            $path = $file->store('surat-keluar/lampiran', 'public');
+            $existing[] = [
+                'path' => $path,
+                'name' => $file->getClientOriginalName(),
+                'size' => $file->getSize(),
+            ];
+        }
+
+        return $existing;
+    }
+
+    /**
+     * @param  list<array{path: string, name: string, size?: int}>  $lampiran
+     * @param  list<string>  $pathsToRemove
+     * @return list<array{path: string, name: string, size?: int}>
+     */
+    private function removeLampiran(array $lampiran, array $pathsToRemove): array
+    {
+        return array_values(array_filter($lampiran, function (array $file) use ($pathsToRemove) {
+            if (in_array($file['path'] ?? '', $pathsToRemove, true)) {
+                Storage::disk('public')->delete($file['path']);
+
+                return false;
+            }
+
+            return true;
+        }));
+    }
+
+    private function resolveUnitKerja(int $idPegawai): ?string
+    {
+        if (! $idPegawai) {
+            return null;
+        }
+
+        return JabatanPegawai::query()
+            ->where('id_pegawai', $idPegawai)
+            ->where('status_jabatan', 'Aktif')
+            ->orderByDesc('tmt')
+            ->value('unit_kerja');
     }
 
     private function flowRoles(Request $request): array
@@ -359,32 +514,32 @@ class PersuratanController extends Controller
         if (! $user) {
             return false;
         }
-        if ($user->is_super_admin) {
-            return true;
-        }
 
-        return $user->hasPermission($key);
+        return $user->is_super_admin || $user->hasPermission($key);
     }
 
+    /**
+     * @return list<string>
+     */
     private function inboxStatuses(array $flowRoles): array
     {
-        if (($flowRoles['kadis'] ?? false) === true) {
+        if ($flowRoles['kadis'] ?? false) {
             return ['menunggu_ttd'];
         }
-        if (($flowRoles['sekretariat'] ?? false) === true) {
+        if ($flowRoles['sekretariat'] ?? false) {
             return ['menunggu_verifikasi', 'disetujui'];
         }
-        if (($flowRoles['kabid'] ?? false) === true) {
+        if ($flowRoles['kabid'] ?? false) {
             return ['menunggu_review_substansi'];
         }
-        if (($flowRoles['operator'] ?? false) === true) {
-            return ['draft', 'revisi_substansi'];
+        if ($flowRoles['operator'] ?? false) {
+            return ['draft', 'revisi_substansi', 'revisi_admin'];
         }
 
         return [];
     }
 
-    private function baseListQuery(Request $request)
+    private function baseListQuery(Request $request, array $flowRoles)
     {
         $query = SuratKeluar::query()
             ->with([
@@ -392,6 +547,15 @@ class PersuratanController extends Controller
                 'penandatangan:id_pegawai,nama_lengkap,nip',
             ])
             ->latest('id_surat_keluar');
+
+        if (($flowRoles['operator'] ?? false) && ! ($flowRoles['kabid'] ?? false) && ! ($flowRoles['sekretariat'] ?? false) && ! ($flowRoles['kadis'] ?? false)) {
+            $user = $request->user();
+            $query->forInboxOperator($user?->id_pegawai, $user?->id);
+        }
+
+        if ($request->filled('unit_kerja')) {
+            $query->where('unit_kerja', $request->string('unit_kerja'));
+        }
 
         if ($request->filled('q')) {
             $q = $request->string('q');
@@ -413,27 +577,35 @@ class PersuratanController extends Controller
     {
         $config = self::APPROVAL_STAGE_CONFIG[$stage];
         $flowRoles = $this->flowRoles($request);
-        $query = $this->baseListQuery($request);
+        $query = $this->baseListQuery($request, $flowRoles);
 
         if (! $request->filled('status')) {
-            $statuses = $config['statuses'] ?? [$config['status']];
-            $statuses = array_values(array_filter($statuses));
-            if (count($statuses) === 1) {
-                $query->where('status', $statuses[0]);
-            } elseif (count($statuses) > 1) {
-                $query->whereIn('status', $statuses);
-            }
+            $query->whereIn('status', $config['statuses']);
         }
 
-        $list = $query->paginate(10)->withQueryString();
-        $statusOptions = SuratKeluar::statusOptions();
-        $ttdOptions = $this->activeTtdOptions();
-        $inboxMode = false;
-        $pageTitle = $config['title'];
-        $isApprovalPage = true;
-        $currentApprovalStage = $stage;
+        return $this->listView($request, $query, $flowRoles, false, $config['title'], true, $stage);
+    }
 
-        return view('admin.Kepegawaian.persuratan.surat_keluar.index', compact('list', 'statusOptions', 'flowRoles', 'inboxMode', 'pageTitle', 'isApprovalPage', 'ttdOptions', 'currentApprovalStage'));
+    private function listView(
+        Request $request,
+        $query,
+        array $flowRoles,
+        bool $inboxMode,
+        string $pageTitle,
+        bool $isApprovalPage,
+        ?string $currentApprovalStage,
+    ): View {
+        $list = $query->paginate(10)->withQueryString();
+
+        return view('admin.Kepegawaian.persuratan.surat_keluar.index', [
+            'list' => $list,
+            'statusOptions' => SuratKeluar::statusOptions(),
+            'flowRoles' => $flowRoles,
+            'inboxMode' => $inboxMode,
+            'pageTitle' => $pageTitle,
+            'isApprovalPage' => $isApprovalPage,
+            'currentApprovalStage' => $currentApprovalStage,
+        ]);
     }
 
     private function activeTtdOptions()
@@ -461,23 +633,5 @@ class PersuratanController extends Controller
         }
 
         return Pegawai::query()->find($idPegawai, ['id_pegawai', 'nama_lengkap', 'nip']);
-    }
-
-    private function logFlow(
-        SuratKeluar $persuratan,
-        Request $request,
-        string $action,
-        ?string $fromStatus,
-        ?string $toStatus,
-        ?string $note = null
-    ): void {
-        SuratKeluarLog::create([
-            'surat_keluar_id' => $persuratan->id_surat_keluar,
-            'user_id' => $request->user()?->id,
-            'action' => $action,
-            'from_status' => $fromStatus,
-            'to_status' => $toStatus,
-            'note' => $note,
-        ]);
     }
 }
