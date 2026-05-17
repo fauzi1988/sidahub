@@ -126,7 +126,8 @@
    @if(! $isEdit)
       <button type="button" class="btn btn-sm btn-outline-secondary mb-2" id="btn-apply-template">Terapkan Template Jenis Surat</button>
    @endif
-   <textarea name="isi_surat" id="isi_surat" class="form-control" rows="8" required minlength="20">{{ old('isi_surat', $isEdit ? $persuratan->isi_surat : '') }}</textarea>
+   <textarea name="isi_surat" id="isi_surat" class="form-control" rows="12">{{ old('isi_surat', $isEdit ? $persuratan->isi_surat : '') }}</textarea>
+   <small class="text-muted d-block mt-1">Gunakan toolbar untuk <strong>tebal</strong>, daftar, dan tabel.</small>
 </div>
 
 <div class="form-group">
@@ -156,21 +157,4 @@
    <a href="{{ route('persuratan-surat-keluar.index') }}" class="btn btn-secondary">Kembali</a>
 </div>
 
-@if(! $isEdit)
-@push('scripts')
-<script>
-const templates = @json($isiTemplates);
-document.getElementById('btn-apply-template')?.addEventListener('click', function () {
-   const jenis = document.getElementById('jenis_surat').value;
-   if (templates[jenis]) {
-      document.getElementById('isi_surat').value = templates[jenis];
-   }
-});
-document.getElementById('jenis_surat')?.addEventListener('change', function () {
-   if (!document.getElementById('isi_surat').value.trim()) {
-      document.getElementById('btn-apply-template').click();
-   }
-});
-</script>
-@endpush
-@endif
+@include('admin.Kepegawaian.persuratan.surat_keluar._tinymce-isi-surat', ['isiTemplates' => $isiTemplates])

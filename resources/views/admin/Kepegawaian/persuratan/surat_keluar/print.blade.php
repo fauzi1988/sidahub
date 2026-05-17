@@ -27,11 +27,19 @@
         .paragraph { text-align: justify; margin: 0 0 10px; }
         .signature-wrap { width: 100%; margin-top: 26px; border-collapse: collapse; }
         .signature-wrap td { vertical-align: top; }
-        .signature-box { width: 48%; }
-        .signature-space { height: 90px; }
-        .ttd-img { max-height: 80px; max-width: 180px; }
+        .signature-col { text-align: right; }
+        .signature-inner { display: inline-block; width: 260px; text-align: center; }
+        .signature-inner .sig-line { text-align: center; }
+        .signature-space { height: 90px; text-align: center; line-height: 90px; }
+        .ttd-img { display: inline-block; vertical-align: middle; max-height: 80px; max-width: 200px; }
         .bold { font-weight: 700; }
         .verify-box { margin-top: 20px; font-size: 9pt; border-top: 1px dashed #666; padding-top: 8px; }
+        .isi-surat-content { text-align: justify; }
+        .isi-surat-content p { margin: 0 0 10px; }
+        .isi-surat-content ul, .isi-surat-content ol { margin: 0 0 10px 20px; padding: 0; }
+        .isi-surat-content table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; }
+        .isi-surat-content th, .isi-surat-content td { border: 1px solid #000; padding: 4px 8px; vertical-align: top; }
+        .isi-surat-content strong, .isi-surat-content b { font-weight: 700; }
     </style>
 </head>
 <body>
@@ -73,11 +81,7 @@
     <div class="paragraph">Dengan hormat,</div>
 
     @if($persuratan->isi_surat)
-        @foreach(preg_split("/(\r\n|\n|\r){2,}/", trim($persuratan->isi_surat)) as $paragraf)
-            @if(trim($paragraf) !== '')
-                <div class="paragraph">{!! nl2br(e(trim($paragraf))) !!}</div>
-            @endif
-        @endforeach
+        <div class="isi-surat-content paragraph">{!! $persuratan->isiSuratDisplay() !!}</div>
     @else
         <div class="paragraph">Sehubungan dengan hal tersebut di atas, bersama ini disampaikan surat ini untuk menjadi perhatian dan tindak lanjut.</div>
     @endif
@@ -86,17 +90,18 @@
 
     <table class="signature-wrap">
         <tr>
-            <td></td>
-            <td class="signature-box">
-                <div class="right">Maba, {{ optional($persuratan->tanggal_kirim ?? $persuratan->tanggal_surat)->translatedFormat('d F Y') }}</div>
-                <div class="right">Kepala Dinas Perhubungan</div>
-                <div class="signature-space center">
-                    @if($persuratan->ttdManagement?->file_ttd && in_array($persuratan->jenis_ttd, ['elektronik', 'scan'], true))
-                        <img src="{{ public_path('storage/'.$persuratan->ttdManagement->file_ttd) }}" class="ttd-img" alt="TTD">
-                    @endif
+            <td class="signature-col">
+                <div class="signature-inner">
+                    <div class="sig-line">Maba, {{ optional($persuratan->tanggal_kirim ?? $persuratan->tanggal_surat)->translatedFormat('d F Y') }}</div>
+                    <div class="sig-line">Kepala Dinas Perhubungan</div>
+                    <div class="signature-space">
+                        @if($persuratan->ttdManagement?->file_ttd && in_array($persuratan->jenis_ttd, ['elektronik', 'scan'], true))
+                            <img src="{{ public_path('storage/'.$persuratan->ttdManagement->file_ttd) }}" class="ttd-img" alt="TTD">
+                        @endif
+                    </div>
+                    <div class="sig-line bold"><u>{{ $persuratan->penandatangan?->nama_lengkap ?: '........................................' }}</u></div>
+                    <div class="sig-line">NIP. {{ $persuratan->penandatangan?->nip ?: '........................................' }}</div>
                 </div>
-                <div class="right bold"><u>{{ $persuratan->penandatangan?->nama_lengkap ?: '........................................' }}</u></div>
-                <div class="right">NIP. {{ $persuratan->penandatangan?->nip ?: '........................................' }}</div>
             </td>
         </tr>
     </table>

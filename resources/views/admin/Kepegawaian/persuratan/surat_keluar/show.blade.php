@@ -52,7 +52,7 @@
             <tr><th>Penandatangan</th><td>{{ $persuratan->penandatangan?->nama_lengkap ?: '-' }}</td></tr>
             <tr><th>TTD</th><td>{{ $persuratan->jenis_ttd ? (SuratKeluar::jenisTtdOptions()[$persuratan->jenis_ttd] ?? $persuratan->jenis_ttd).' — '.($persuratan->ttdManagement?->nama_ttd ?? '-') : '-' }}</td></tr>
             <tr><th>Ringkasan</th><td>{{ $persuratan->ringkasan ?: '-' }}</td></tr>
-            <tr><th>Isi Surat</th><td>{!! nl2br(e($persuratan->isi_surat ?: '-')) !!}</td></tr>
+            <tr><th>Isi Surat</th><td class="isi-surat-html">{!! $persuratan->isiSuratDisplay() !!}</td></tr>
             <tr><th>Catatan Internal</th><td>{!! nl2br(e($persuratan->catatan ?: '-')) !!}</td></tr>
             @if($persuratan->alasan_batal)
             <tr><th>Alasan Batal</th><td class="text-danger">{{ $persuratan->alasan_batal }}</td></tr>

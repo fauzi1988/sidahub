@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\SuratKeluarIsiSanitizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -115,6 +116,11 @@ class SuratKeluar extends Model
         return in_array($this->status, ['dikirim', 'diarsipkan'], true);
     }
 
+    public function isiSuratDisplay(): string
+    {
+        return app(SuratKeluarIsiSanitizer::class)->forDisplay($this->isi_surat);
+    }
+
     public function jenisSuratLabel(): string
     {
         return self::jenisSuratOptions()[$this->jenis_surat] ?? $this->jenis_surat;
@@ -202,12 +208,12 @@ class SuratKeluar extends Model
     public static function isiTemplates(): array
     {
         return [
-            'surat_dinas' => "Dengan hormat,\n\n[Buka paragraf isi surat dinas di sini]\n\nDemikian surat ini kami sampaikan, atas perhatian dan kerja samanya diucapkan terima kasih.",
-            'nota_dinas' => "Hal : [perihal]\n\nKepada Yth. [nama penerima internal]\n\n[Buka isi nota dinas]\n\nDemikian untuk menjadi perhatian dan arahan Bapak/Ibu.",
-            'surat_tugas' => "Dasar:\n1. [dasar hukum/keputusan]\n\nMemberikan tugas kepada:\nNama : \nNIP  : \nJabatan : \n\nUntuk melaksanakan: [uraian tugas]\n\nPelaksanaan tugas pada tanggal [tanggal].",
-            'undangan' => "Mengharap kehadiran Bapak/Ibu pada:\n\nHari/Tanggal : \nWaktu        : \nTempat       : \nAcara        : \n\nDemikian undangan ini disampaikan.",
-            'memo_internal' => "Kepada seluruh unit kerja terkait,\n\n[Buka isi memo internal]\n\nMohon dipedomani dan dilaksanakan.",
-            'balasan' => "Menindaklanjuti surat [nomor/tanggal surat masuk] perihal [perihal], dengan hormat kami sampaikan hal sebagai berikut:\n\n[Buka isi balasan]",
+            'surat_dinas' => '<p>Dengan hormat,</p><p>[Buka paragraf isi surat dinas di sini]</p><p>Demikian surat ini kami sampaikan, atas perhatian dan kerja samanya diucapkan terima kasih.</p>',
+            'nota_dinas' => '<p><strong>Hal :</strong> [perihal]</p><p>Kepada Yth. [nama penerima internal]</p><p>[Buka isi nota dinas]</p><p>Demikian untuk menjadi perhatian dan arahan Bapak/Ibu.</p>',
+            'surat_tugas' => '<p><strong>Dasar:</strong></p><ol><li>[dasar hukum/keputusan]</li></ol><p><strong>Memberikan tugas kepada:</strong></p><table><tbody><tr><td>Nama</td><td>:</td><td></td></tr><tr><td>NIP</td><td>:</td><td></td></tr><tr><td>Jabatan</td><td>:</td><td></td></tr></tbody></table><p><strong>Untuk melaksanakan:</strong> [uraian tugas]</p><p>Pelaksanaan tugas pada tanggal [tanggal].</p>',
+            'undangan' => '<p>Mengharap kehadiran Bapak/Ibu pada:</p><table><tbody><tr><td>Hari/Tanggal</td><td>:</td><td></td></tr><tr><td>Waktu</td><td>:</td><td></td></tr><tr><td>Tempat</td><td>:</td><td></td></tr><tr><td>Acara</td><td>:</td><td></td></tr></tbody></table><p>Demikian undangan ini disampaikan.</p>',
+            'memo_internal' => '<p>Kepada seluruh unit kerja terkait,</p><p>[Buka isi memo internal]</p><p>Mohon dipedomani dan dilaksanakan.</p>',
+            'balasan' => '<p>Menindaklanjuti surat [nomor/tanggal surat masuk] perihal [perihal], dengan hormat kami sampaikan hal sebagai berikut:</p><p>[Buka isi balasan]</p>',
         ];
     }
 

@@ -2,12 +2,15 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\SanitizesSuratKeluarIsi;
 use App\Models\SuratKeluar;
+use App\Rules\MinPlainTextLength;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateSuratKeluarRequest extends FormRequest
 {
+    use SanitizesSuratKeluarIsi;
     public function authorize(): bool
     {
         $surat = $this->route('persuratan');
@@ -30,7 +33,7 @@ class UpdateSuratKeluarRequest extends FormRequest
             'prioritas' => ['required', Rule::in(array_keys(SuratKeluar::prioritasOptions()))],
             'id_pegawai_pengusul' => ['nullable', 'exists:pegawai,id_pegawai'],
             'ringkasan' => ['nullable', 'string'],
-            'isi_surat' => ['required', 'string', 'min:20'],
+            'isi_surat' => ['required', 'string', new MinPlainTextLength(20)],
             'catatan' => ['nullable', 'string'],
             'lampiran' => ['nullable', 'array', 'max:5'],
             'lampiran.*' => ['file', 'max:5120', 'mimes:pdf,doc,docx,jpg,jpeg,png'],

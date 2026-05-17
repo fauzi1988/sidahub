@@ -2,12 +2,15 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\SanitizesSuratKeluarIsi;
 use App\Models\SuratKeluar;
+use App\Rules\MinPlainTextLength;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreSuratKeluarRequest extends FormRequest
 {
+    use SanitizesSuratKeluarIsi;
     public function authorize(): bool
     {
         return $this->user()?->can('create', SuratKeluar::class) ?? false;
@@ -29,7 +32,7 @@ class StoreSuratKeluarRequest extends FormRequest
             'id_pegawai_pengusul' => ['nullable', 'exists:pegawai,id_pegawai'],
             'id_pegawai_penandatangan' => ['nullable', 'exists:pegawai,id_pegawai'],
             'ringkasan' => ['nullable', 'string'],
-            'isi_surat' => ['required', 'string', 'min:20'],
+            'isi_surat' => ['required', 'string', new MinPlainTextLength(20)],
             'catatan' => ['nullable', 'string'],
             'lampiran' => ['nullable', 'array', 'max:5'],
             'lampiran.*' => ['file', 'max:5120', 'mimes:pdf,doc,docx,jpg,jpeg,png'],
