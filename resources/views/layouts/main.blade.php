@@ -83,9 +83,49 @@
                         <div class="right_topbar">
                            <div class="icon_info">
                               <ul>
-                                 <li><a href="#"><i class="fa fa-bell-o"></i><span class="badge">2</span></a></li>
-                                 <li><a href="#"><i class="fa fa-question-circle"></i></a></li>
-                                 <li><a href="#"><i class="fa fa-envelope-o"></i><span class="badge">3</span></a></li>
+                                 @auth
+                                 @php
+                                    $unreadNotifications = auth()->user()->unreadNotifications()->limit(12)->get();
+                                    $unreadCount = auth()->user()->unreadNotifications()->count();
+                                 @endphp
+                                 <li class="dropdown notification-dropdown-wrap">
+                                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Notifikasi">
+                                       <i class="fa fa-bell-o"></i>
+                                       @if($unreadCount > 0)
+                                          <span class="badge badge-danger">{{ $unreadCount > 99 ? '99+' : $unreadCount }}</span>
+                                       @endif
+                                    </a>
+                                    <div class="dropdown-menu dropdown-menu-right notification-dropdown shadow">
+                                       <div class="notification-dropdown__header d-flex justify-content-between align-items-center">
+                                          <strong>Notifikasi</strong>
+                                          @if($unreadCount > 0)
+                                             <form method="POST" action="{{ route('notifications.read-all') }}" class="mb-0">
+                                                @csrf
+                                                <button type="submit" class="btn btn-link btn-sm p-0">Tandai semua dibaca</button>
+                                             </form>
+                                          @endif
+                                       </div>
+                                       @forelse($unreadNotifications as $notification)
+                                          @php $data = $notification->data; @endphp
+                                          <form method="POST" action="{{ route('notifications.read', $notification->id) }}" class="notification-dropdown__item mb-0">
+                                             @csrf
+                                             <button type="submit" class="dropdown-item notification-dropdown__link">
+                                                <span class="notification-dropdown__title">{{ $data['message'] ?? 'Pembaruan surat' }}</span>
+                                                @if(!empty($data['nomor_agenda']))
+                                                   <span class="notification-dropdown__meta">Agenda {{ $data['nomor_agenda'] }}</span>
+                                                @endif
+                                                @if(!empty($data['status_label']))
+                                                   <span class="notification-dropdown__meta">{{ $data['status_label'] }}</span>
+                                                @endif
+                                                <span class="notification-dropdown__time">{{ $notification->created_at?->diffForHumans() }}</span>
+                                             </button>
+                                          </form>
+                                       @empty
+                                          <span class="dropdown-item text-muted small">Tidak ada notifikasi baru.</span>
+                                       @endforelse
+                                    </div>
+                                 </li>
+                                 @endauth
                               </ul>
                               <ul class="user_profile_dd">
                                  <li>

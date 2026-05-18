@@ -2,8 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\ArsipSuratKeluar;
 use App\Models\SuratKeluar;
+use App\Models\SuratMasuk;
+use App\Policies\ArsipSuratKeluarPolicy;
 use App\Policies\SuratKeluarPolicy;
+use App\Policies\SuratMasukPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -11,6 +15,8 @@ class AppServiceProvider extends ServiceProvider
 {
     protected $policies = [
         SuratKeluar::class => SuratKeluarPolicy::class,
+        SuratMasuk::class => SuratMasukPolicy::class,
+        ArsipSuratKeluar::class => ArsipSuratKeluarPolicy::class,
     ];
     /**
      * Register any application services.

@@ -76,3 +76,76 @@
     font-weight: 600;
     color: #37474f;
 }
+
+/* Notifikasi topbar */
+.notification-dropdown-wrap .dropdown-toggle {
+    position: relative;
+}
+.notification-dropdown-wrap .badge-danger {
+    position: absolute;
+    top: 2px;
+    right: -4px;
+    font-size: 10px;
+    padding: 2px 5px;
+    border-radius: 10px;
+}
+.notification-dropdown {
+    min-width: 320px;
+    max-width: 380px;
+    max-height: 420px;
+    overflow-y: auto;
+    padding: 0;
+}
+.notification-dropdown__header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #eceff1;
+    background: #fafbfc;
+}
+.notification-dropdown__item {
+    border-bottom: 1px solid #f5f5f5;
+}
+.notification-dropdown__link {
+    white-space: normal;
+    padding: 0.65rem 1rem;
+    text-align: left;
+}
+.notification-dropdown__link:hover {
+    background-color: #e8f5e9;
+}
+.notification-dropdown__title {
+    display: block;
+    font-weight: 600;
+    color: #263238;
+    font-size: 0.875rem;
+    line-height: 1.35;
+}
+.notification-dropdown__meta {
+    display: block;
+    font-size: 0.75rem;
+    color: #607d8b;
+}
+.notification-dropdown__time {
+    display: block;
+    font-size: 0.7rem;
+    color: #90a4ae;
+    margin-top: 0.25rem;
+}
+
+/* Persuratan masuk — kartu statistik & workflow */
+.persuratan-inbox-stats .card {
+    transition: box-shadow 0.15s ease;
+}
+.persuratan-inbox-stats .card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.persuratan-inbox-stats .h5 {
+    font-weight: 700;
+}
+.workflow-actions.card {
+    border-left: 4px solid #2e7d32;
+    background: #fafbfc;
+}
+.workflow-actions .card-title {
+    color: #1b5e20;
+    font-weight: 700;
+}

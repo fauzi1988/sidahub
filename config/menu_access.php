@@ -20,12 +20,32 @@ return [
             'icon' => 'fa-users purple_color',
             'items' => [
                 ['key' => 'kepegawaian.pegawai', 'label' => 'Data Pegawai', 'route' => 'pegawai.index'],
-                ['key' => 'kepegawaian.persuratan.surat_keluar', 'label' => 'Persuratan - Surat Keluar', 'route' => 'persuratan-surat-keluar.index'],
-                ['key' => 'kepegawaian.persuratan.approve_kabid', 'label' => 'Persuratan - Approve Kabid', 'route' => 'persuratan-surat-keluar.approve-kabid'],
-                ['key' => 'kepegawaian.persuratan.approve_sekretariat', 'label' => 'Persuratan - Approve Sekretariat', 'route' => 'persuratan-surat-keluar.approve-sekretariat'],
-                ['key' => 'kepegawaian.persuratan.approve_kadis', 'label' => 'Persuratan - Approve Kadis', 'route' => 'persuratan-surat-keluar.approve-kadis'],
-                ['key' => 'kepegawaian.persuratan.manajemen_ttd', 'label' => 'Persuratan - Manajemen TTD', 'route' => 'manajemen-ttd.index'],
                 ['key' => 'kepegawaian.perencanaan', 'label' => 'Perencanaan', 'route' => null],
+            ],
+        ],
+        [
+            'key' => 'persuratan',
+            'label' => 'Persuratan',
+            'icon' => 'fa-envelope purple_color',
+            'items' => [
+                ['key' => 'kepegawaian.persuratan.surat_keluar', 'label' => 'Surat Keluar', 'route' => 'persuratan-surat-keluar.index'],
+                ['key' => 'kepegawaian.persuratan.arsip_surat_keluar', 'label' => 'Arsip Surat Keluar', 'route' => 'persuratan-arsip.index'],
+                ['key' => 'kepegawaian.persuratan.approve_kabid', 'label' => 'Approve Kabid', 'route' => 'persuratan-surat-keluar.approve-kabid'],
+                ['key' => 'kepegawaian.persuratan.approve_sekretariat', 'label' => 'Approve Sekretariat', 'route' => 'persuratan-surat-keluar.approve-sekretariat'],
+                ['key' => 'kepegawaian.persuratan.approve_kadis', 'label' => 'Approve Kadis', 'route' => 'persuratan-surat-keluar.approve-kadis'],
+                ['key' => 'kepegawaian.persuratan.manajemen_ttd', 'label' => 'Manajemen TTD', 'route' => 'manajemen-ttd.index'],
+            ],
+        ],
+        [
+            'key' => 'persuratan_masuk',
+            'label' => 'Persuratan Masuk',
+            'icon' => 'fa-inbox purple_color',
+            'items' => [
+                ['key' => 'kepegawaian.persuratan.surat_masuk', 'label' => 'Daftar Surat Masuk', 'route' => 'persuratan-masuk.index'],
+                ['key' => 'kepegawaian.persuratan.surat_masuk', 'label' => 'Proses Sekretariat', 'route' => 'persuratan-masuk.proses-sekretariat'],
+                ['key' => 'kepegawaian.persuratan_masuk.approve_kadis', 'label' => 'Disposisi Kadis', 'route' => 'persuratan-masuk.disposisi-kadis'],
+                ['key' => 'kepegawaian.persuratan_masuk.approve_kabid', 'label' => 'Tindak Lanjut Unit', 'route' => 'persuratan-masuk.tindak-lanjut-unit'],
+                ['key' => 'kepegawaian.persuratan.surat_masuk', 'label' => 'Arsip Surat Masuk', 'route' => 'persuratan-masuk.arsip'],
             ],
         ],
         [

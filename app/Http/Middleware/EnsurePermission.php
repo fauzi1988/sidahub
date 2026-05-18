@@ -19,7 +19,11 @@ class EnsurePermission
             return $next($request);
         }
 
-        if (! $user->hasPermission($permission)) {
+        $keys = array_filter(array_map('trim', explode(',', $permission)));
+
+        $allowed = collect($keys)->contains(fn (string $key) => $user->hasPermission($key));
+
+        if (! $allowed) {
             abort(403, 'Anda tidak memiliki akses ke halaman ini.');
         }
 

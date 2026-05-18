@@ -11,10 +11,12 @@ use App\Models\JabatanPegawai;
 use App\Models\ManajemenTtd;
 use App\Models\Pegawai;
 use App\Models\SuratKeluar;
-use App\Models\SuratMasuk;
+use App\Models\ArsipSuratKeluar;
 use App\Services\SuratKeluarNomorService;
+use App\Services\SuratKeluarPaketService;
+use App\Services\SuratKeluarPrintPdfService;
 use App\Services\SuratKeluarWorkflowService;
-use Barryvdh\DomPDF\Facade\Pdf;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -48,8 +50,20 @@ class PersuratanController extends Controller
         $this->authorize('viewAny', SuratKeluar::class);
 
         $flowRoles = $this->flowRoles($request);
-        $query = $this->baseListQuery($request, $flowRoles);
         $inboxMode = $request->boolean('inbox');
+
+        if (! $inboxMode) {
+            if (! $this->canViewAllSuratList($request)) {
+                return redirect()
+                    ->route('persuratan-surat-keluar.index', ['inbox' => 1])
+                    ->with('info', 'Daftar semua surat hanya dapat diakses Sekretariat dan Kadis.');
+            }
+
+            $this->authorize('viewAll', SuratKeluar::class);
+        }
+
+        $wideKabidList = $inboxMode && ($flowRoles['kabid'] ?? false);
+        $query = $this->baseListQuery($request, $flowRoles, $wideKabidList);
 
         if ($inboxMode && ! $request->filled('status')) {
             $inboxStatuses = $this->inboxStatuses($flowRoles);
@@ -173,18 +187,45 @@ class PersuratanController extends Controller
             'ttdManagement:id_ttd,nama_ttd,jenis_ttd,file_ttd',
         ]);
 
-        $pdf = Pdf::loadView('admin.Kepegawaian.persuratan.surat_keluar.print', [
-            'persuratan' => $persuratan,
-            'verifyUrl' => $persuratan->verification_code
-                ? route('persuratan-surat-keluar.verify', $persuratan->verification_code)
-                : null,
-        ])->setPaper('A4', 'portrait');
+        $verifyUrl = $persuratan->verification_code
+            ? route('persuratan-surat-keluar.verify', $persuratan->verification_code)
+            : null;
+
+        $pdfBinary = app(SuratKeluarPrintPdfService::class)->generate($persuratan, $verifyUrl);
 
         $filename = 'surat-keluar-'.($persuratan->nomor_surat
             ? preg_replace('/[^A-Za-z0-9\-]+/', '-', $persuratan->nomor_surat)
             : $persuratan->id_surat_keluar).'.pdf';
 
-        return $pdf->stream($filename);
+        return response($pdfBinary, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+        ]);
+    }
+
+    public function downloadPaket(SuratKeluar $persuratan): BinaryFileResponse
+    {
+        $this->authorize('view', $persuratan);
+        abort_unless($persuratan->canBePrinted(), 403, 'Paket surat hanya dapat diunduh setelah dinomori dan berstatus dikirim.');
+
+        $persuratan->load([
+            'pengusul:id_pegawai,nama_lengkap,nip',
+            'penandatangan:id_pegawai,nama_lengkap,nip',
+            'ttdManagement:id_ttd,nama_ttd,jenis_ttd,file_ttd',
+        ]);
+
+        $verifyUrl = $persuratan->verification_code
+            ? route('persuratan-surat-keluar.verify', $persuratan->verification_code)
+            : null;
+
+        $paketService = app(SuratKeluarPaketService::class);
+        $zipPath = $paketService->createPackageZip($persuratan, $verifyUrl);
+
+        return response()
+            ->download($zipPath, $paketService->packageFilename($persuratan), [
+                'Content-Type' => 'application/zip',
+            ])
+            ->deleteFileAfterSend(true);
     }
 
     public function submit(Request $request, SuratKeluar $persuratan): RedirectResponse
@@ -399,8 +440,8 @@ class PersuratanController extends Controller
 
     private function syncSuratMasukFromKeluar(SuratKeluar $surat): void
     {
-        if ($surat->suratMasuk) {
-            $surat->suratMasuk->update([
+        if ($surat->arsipSuratKeluar) {
+            $surat->arsipSuratKeluar->update([
                 'nomor_surat' => $surat->nomor_surat,
                 'tanggal_surat' => $surat->tanggal_surat,
                 'perihal' => $surat->perihal,
@@ -409,7 +450,7 @@ class PersuratanController extends Controller
             return;
         }
 
-        SuratMasuk::create([
+        ArsipSuratKeluar::create([
             'nomor_surat' => $surat->nomor_surat,
             'tanggal_surat' => $surat->tanggal_surat,
             'tanggal_terima' => $surat->tanggal_kirim,
@@ -478,6 +519,18 @@ class PersuratanController extends Controller
             ->value('unit_kerja');
     }
 
+    private function canViewAllSuratList(Request $request): bool
+    {
+        $user = $request->user();
+        if (! $user) {
+            return false;
+        }
+
+        return $user->is_super_admin
+            || $this->isSekretariat($request)
+            || $this->isKadis($request);
+    }
+
     private function flowRoles(Request $request): array
     {
         return [
@@ -485,6 +538,7 @@ class PersuratanController extends Controller
             'kabid' => $this->isKabid($request),
             'sekretariat' => $this->isSekretariat($request),
             'kadis' => $this->isKadis($request),
+            'can_view_all' => $this->canViewAllSuratList($request),
         ];
     }
 
@@ -539,7 +593,7 @@ class PersuratanController extends Controller
         return [];
     }
 
-    private function baseListQuery(Request $request, array $flowRoles)
+    private function baseListQuery(Request $request, array $flowRoles, bool $wideKabidList = false)
     {
         $query = SuratKeluar::query()
             ->with([
@@ -548,7 +602,10 @@ class PersuratanController extends Controller
             ])
             ->latest('id_surat_keluar');
 
-        if (($flowRoles['operator'] ?? false) && ! ($flowRoles['kabid'] ?? false) && ! ($flowRoles['sekretariat'] ?? false) && ! ($flowRoles['kadis'] ?? false)) {
+        $canSeeAllSurat = $this->canViewAllSuratList($request);
+        $kabidWorkflowList = $wideKabidList && ($flowRoles['kabid'] ?? false);
+
+        if (! $canSeeAllSurat && ! $kabidWorkflowList) {
             $user = $request->user();
             $query->forInboxOperator($user?->id_pegawai, $user?->id);
         }
@@ -577,7 +634,7 @@ class PersuratanController extends Controller
     {
         $config = self::APPROVAL_STAGE_CONFIG[$stage];
         $flowRoles = $this->flowRoles($request);
-        $query = $this->baseListQuery($request, $flowRoles);
+        $query = $this->baseListQuery($request, $flowRoles, $stage === 'kabid');
 
         if (! $request->filled('status')) {
             $query->whereIn('status', $config['statuses']);

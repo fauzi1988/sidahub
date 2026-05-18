@@ -30,14 +30,18 @@
          border-radius: 12px 12px 0 0 !important;
          padding: 1.25rem 1.5rem;
       }
+      .login-card .card-header h5,
+      .login-card .card-header small {
+         color: #fff !important;
+      }
       .login-card .card-body { padding: 1.75rem; }
    </style>
 </head>
 <body class="login-page">
    <div class="card login-card border-0">
       <div class="card-header border-0">
-         <h5 class="mb-0 font-weight-bold">DISHUB HALTIM</h5>
-         <small class="opacity-75">Silakan masuk untuk melanjutkan</small>
+         <h5 class="mb-0 font-weight-bold text-white">DISHUB HALTIM</h5>
+         <small class="text-white opacity-75 d-block">Silakan masuk untuk melanjutkan</small>
       </div>
       <div class="card-body bg-white">
          @if ($errors->any())

@@ -137,6 +137,7 @@
 
 <div class="form-group">
    <label>Lampiran (PDF/DOC/Gambar, maks. 5 file × 5MB)</label>
+   <small class="text-muted d-block mb-2">File PDF/gambar digabung ke PDF cetak. DOC/DOCX ikut dalam paket unduh (ZIP) untuk dicetak manual dari file asli.</small>
    <input type="file" name="lampiran[]" class="form-control" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
    @if($isEdit && !empty($persuratan->lampiran))
       <div class="mt-2">

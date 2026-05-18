@@ -12,9 +12,28 @@ class SuratKeluarPolicy
         return $this->hasAnyPersuratanPermission($user);
     }
 
+    public function viewAll(User $user): bool
+    {
+        return $user->is_super_admin
+            || $user->hasPermission('kepegawaian.persuratan.approve_sekretariat')
+            || $user->hasPermission('kepegawaian.persuratan.approve_kadis');
+    }
+
     public function view(User $user, SuratKeluar $suratKeluar): bool
     {
-        return $this->viewAny($user);
+        if (! $this->hasAnyPersuratanPermission($user)) {
+            return false;
+        }
+
+        if ($this->viewAll($user)) {
+            return true;
+        }
+
+        if ($user->hasPermission('kepegawaian.persuratan.approve_kabid')) {
+            return true;
+        }
+
+        return $this->ownsSurat($user, $suratKeluar);
     }
 
     public function create(User $user): bool
@@ -111,6 +130,7 @@ class SuratKeluarPolicy
 
         foreach ([
             'kepegawaian.persuratan.surat_keluar',
+            'kepegawaian.persuratan.surat_masuk',
             'kepegawaian.persuratan.approve_kabid',
             'kepegawaian.persuratan.approve_sekretariat',
             'kepegawaian.persuratan.approve_kadis',

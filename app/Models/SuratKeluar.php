@@ -96,9 +96,15 @@ class SuratKeluar extends Model
         return $this->hasMany(SuratKeluarLog::class, 'surat_keluar_id', 'id_surat_keluar');
     }
 
+    public function arsipSuratKeluar(): HasOne
+    {
+        return $this->hasOne(ArsipSuratKeluar::class, 'surat_keluar_id', 'id_surat_keluar');
+    }
+
+    /** @deprecated Use arsipSuratKeluar() */
     public function suratMasuk(): HasOne
     {
-        return $this->hasOne(SuratMasuk::class, 'surat_keluar_id', 'id_surat_keluar');
+        return $this->arsipSuratKeluar();
     }
 
     public function isEditable(): bool

@@ -7,7 +7,9 @@
          <h2 class="mb-0">{{ $pageTitle ?? 'Persuratan (Surat Keluar)' }}</h2>
          <div class="btn-actions">
             <a href="{{ route('persuratan-surat-keluar.index', ['inbox' => 1]) }}" class="btn btn-outline-primary">Inbox Saya</a>
-            <a href="{{ route('persuratan-surat-keluar.index') }}" class="btn btn-secondary">Semua Surat</a>
+            @if($flowRoles['can_view_all'] ?? false)
+               <a href="{{ route('persuratan-surat-keluar.index') }}" class="btn btn-secondary">Semua Surat</a>
+            @endif
             @if($flowRoles['kabid'] ?? false)
                <a href="{{ route('persuratan-surat-keluar.approve-kabid') }}" class="btn btn-warning">Approve Kabid</a>
             @endif
@@ -29,6 +31,9 @@
 
 @if(session('success'))
    <div class="alert alert-success alert-dismissible fade show">{{ session('success') }}<button type="button" class="close" data-dismiss="alert">&times;</button></div>
+@endif
+@if(session('info'))
+   <div class="alert alert-info alert-dismissible fade show">{{ session('info') }}<button type="button" class="close" data-dismiss="alert">&times;</button></div>
 @endif
 
 <div class="white_shd full margin_bottom_30">

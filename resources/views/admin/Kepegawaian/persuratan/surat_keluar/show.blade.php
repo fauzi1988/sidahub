@@ -16,7 +16,8 @@
                <a href="{{ route('persuratan-surat-keluar.edit', $persuratan) }}" class="btn btn-warning">Edit</a>
             @endcan
             @if($persuratan->canBePrinted())
-               <a href="{{ route('persuratan-surat-keluar.print', $persuratan) }}" class="btn btn-success" target="_blank">Cetak PDF</a>
+               <a href="{{ route('persuratan-surat-keluar.print', $persuratan) }}" class="btn btn-success" target="_blank" rel="noopener">Cetak PDF</a>
+               <a href="{{ route('persuratan-surat-keluar.download-paket', $persuratan) }}" class="btn btn-info">Unduh Paket (PDF + Lampiran)</a>
             @endif
          </div>
       </div>
@@ -69,10 +70,10 @@
       </ul>
       @endif
 
-      @if($persuratan->suratMasuk)
+      @if($persuratan->arsipSuratKeluar)
       <div class="alert alert-info mt-3 mb-0">
-         Terhubung ke <a href="{{ route('persuratan-surat-masuk.index') }}">Surat Masuk</a>
-         (ID: {{ $persuratan->suratMasuk->id_surat_masuk }}).
+         Terhubung ke <a href="{{ route('persuratan-arsip.index') }}">Arsip Surat Keluar</a>
+         (ID: {{ $persuratan->arsipSuratKeluar->id_surat_masuk }}).
       </div>
       @endif
 

@@ -13,8 +13,10 @@ use App\Http\Controllers\PenyerahanKarcisController;
 use App\Http\Controllers\PenerimaanKarcisController;
 use App\Http\Controllers\PetugasKarcisController;
 use App\Http\Controllers\PersuratanController;
+use App\Http\Controllers\ArsipSuratKeluarController;
 use App\Http\Controllers\SuratMasukController;
 use App\Http\Controllers\PendidikanController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserAccountController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,6 +36,11 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
+        ->name('notifications.read');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])
+        ->name('notifications.read-all');
 
     Route::redirect('/admin', '/admin/dashboard');
     Route::view('/admin/dashboard', 'admin.dashboard')->name('dashboard');
@@ -169,6 +176,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:kepegawaian.persuratan.surat_keluar')->group(function () {
         Route::get('/admin/kepegawaian/persuratan/surat_keluar/{persuratan}/print', [PersuratanController::class, 'print'])
             ->name('persuratan-surat-keluar.print');
+        Route::get('/admin/kepegawaian/persuratan/surat_keluar/{persuratan}/paket', [PersuratanController::class, 'downloadPaket'])
+            ->name('persuratan-surat-keluar.download-paket');
         Route::post('/admin/kepegawaian/persuratan/surat_keluar/{persuratan}/submit', [PersuratanController::class, 'submit'])
             ->name('persuratan-surat-keluar.submit');
         Route::post('/admin/kepegawaian/persuratan/surat_keluar/{persuratan}/cancel', [PersuratanController::class, 'cancel'])
@@ -179,18 +188,55 @@ Route::middleware('auth')->group(function () {
             ->parameters(['surat_keluar' => 'persuratan'])
             ->names('persuratan-surat-keluar');
 
-        Route::name('persuratan-surat-masuk.')
-            ->prefix('/admin/kepegawaian/persuratan/surat_masuk')
-            ->group(function () {
-                Route::get('/', [SuratMasukController::class, 'index'])->name('index');
-            });
-
         Route::name('persuratan-disposisi.')
             ->prefix('/admin/kepegawaian/persuratan/disposisi')
             ->group(function () {
                 Route::view('/', 'admin.Kepegawaian.persuratan.disposisi.index')->name('index');
             });
     });
+
+    Route::middleware('permission:kepegawaian.persuratan.arsip_surat_keluar,kepegawaian.persuratan.surat_keluar,kepegawaian.persuratan.approve_sekretariat,kepegawaian.persuratan.approve_kadis')->group(function () {
+        Route::name('persuratan-arsip.')
+            ->prefix('/admin/kepegawaian/persuratan/arsip')
+            ->group(function () {
+                Route::get('/', [ArsipSuratKeluarController::class, 'index'])->name('index');
+            });
+    });
+
+    Route::name('persuratan-masuk.')
+        ->prefix('/admin/persuratan_masuk')
+        ->group(function () {
+            Route::middleware('permission:kepegawaian.persuratan.surat_masuk')->group(function () {
+                Route::get('/', [SuratMasukController::class, 'index'])->name('index');
+                Route::get('/export', [SuratMasukController::class, 'export'])->name('export');
+                Route::get('/create', [SuratMasukController::class, 'create'])->name('create');
+                Route::post('/', [SuratMasukController::class, 'store'])->name('store');
+                Route::get('/proses-sekretariat', [SuratMasukController::class, 'prosesSekretariat'])->name('proses-sekretariat');
+                Route::get('/arsip', [SuratMasukController::class, 'arsip'])->name('arsip');
+                Route::post('/{surat_masuk}/agenda', [SuratMasukController::class, 'setAgenda'])->name('agenda');
+                Route::post('/{surat_masuk}/forward-kadis', [SuratMasukController::class, 'forwardToKadis'])->name('forward-kadis');
+                Route::post('/{surat_masuk}/archive', [SuratMasukController::class, 'archive'])->name('archive');
+                Route::post('/{surat_masuk}/cancel', [SuratMasukController::class, 'cancel'])->name('cancel');
+                Route::get('/{surat_masuk}/edit', [SuratMasukController::class, 'edit'])->name('edit');
+                Route::put('/{surat_masuk}', [SuratMasukController::class, 'update'])->name('update');
+                Route::delete('/{surat_masuk}', [SuratMasukController::class, 'destroy'])->name('destroy');
+            });
+
+            Route::middleware('permission:kepegawaian.persuratan_masuk.approve_kadis,kepegawaian.persuratan.approve_kadis')->group(function () {
+                Route::get('/disposisi-kadis', [SuratMasukController::class, 'disposisiKadis'])->name('disposisi-kadis');
+                Route::post('/{surat_masuk}/kadis-dispose', [SuratMasukController::class, 'kadisDispose'])->name('kadis-dispose');
+            });
+
+            Route::middleware('permission:kepegawaian.persuratan_masuk.approve_kabid,kepegawaian.persuratan.approve_kabid')->group(function () {
+                Route::get('/tindak-lanjut-unit', [SuratMasukController::class, 'tindakLanjutUnit'])->name('tindak-lanjut-unit');
+                Route::post('/{surat_masuk}/process', [SuratMasukController::class, 'startProcess'])->name('process');
+                Route::post('/{surat_masuk}/disposisi/{disposisi}/complete', [SuratMasukController::class, 'completeDisposisi'])->name('complete-disposisi');
+            });
+
+            Route::middleware('permission:kepegawaian.persuratan.surat_masuk,kepegawaian.persuratan_masuk.approve_kabid,kepegawaian.persuratan_masuk.approve_kadis,kepegawaian.persuratan.approve_kabid,kepegawaian.persuratan.approve_kadis')->group(function () {
+                Route::get('/{surat_masuk}', [SuratMasukController::class, 'show'])->name('show');
+            });
+        });
 
     Route::middleware('permission:kepegawaian.persuratan.manajemen_ttd')->group(function () {
         Route::resource('/admin/kepegawaian/persuratan/manajemen_ttd', ManajemenTtdController::class)
